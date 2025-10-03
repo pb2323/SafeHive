@@ -54,8 +54,8 @@
   - [x] 2.1 Create main `cli.py` entrypoint using typer framework
   - [x] 2.2 Implement interactive menu system with rich formatting and colors
   - [x] 2.3 Add `--metrics` CLI flag to display summary statistics
-  - [ ] 2.4 Create sandbox launch command with scenario selection
-  - [ ] 2.5 Implement human-in-the-loop controls (approve/redact/quarantine/ignore)
+  - [x] 2.4 Create sandbox launch command with scenario selection
+  - [x] 2.5 Implement human-in-the-loop controls (approve/redact/quarantine/ignore)
   - [ ] 2.6 Add real-time status updates and progress indicators during simulations
   - [ ] 2.7 Create help system and command documentation
   - [ ] 2.8 Implement configuration validation and error handling

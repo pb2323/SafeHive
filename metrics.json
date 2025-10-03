@@ -1,0 +1,326 @@
+{
+  "system_stats": {
+    "uptime_seconds": 0.305036,
+    "uptime_human": "0:00:00",
+    "total_metrics_collected": 33,
+    "active_metrics": 16,
+    "active_counters": 11,
+    "active_gauges": 3,
+    "active_timers": 2,
+    "recent_events": 6,
+    "memory_usage_mb": 0.033,
+    "start_time": "2025-10-03T15:16:50.573568"
+  },
+  "summaries": {
+    "system.status_check": {
+      "name": "system.status_check",
+      "metric_type": "counter",
+      "count": 1,
+      "total": 1.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.573694",
+      "tags": {
+        "component": "cli"
+      }
+    },
+    "system.ollama_status": {
+      "name": "system.ollama_status",
+      "metric_type": "gauge",
+      "count": 1,
+      "total": 1.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.573713",
+      "tags": {}
+    },
+    "system.config_status": {
+      "name": "system.config_status",
+      "metric_type": "gauge",
+      "count": 1,
+      "total": 1.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.573727",
+      "tags": {}
+    },
+    "system.initialization_start": {
+      "name": "system.initialization_start",
+      "metric_type": "counter",
+      "count": 3,
+      "total": 3.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.588407",
+      "tags": {
+        "log_level": "INFO"
+      }
+    },
+    "system.initialization_success": {
+      "name": "system.initialization_success",
+      "metric_type": "counter",
+      "count": 2,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.583179",
+      "tags": {}
+    },
+    "system.initialization_duration": {
+      "name": "system.initialization_duration",
+      "metric_type": "timer",
+      "count": 2,
+      "total": 0.0005147457122802734,
+      "min_value": 0.0002167224884033203,
+      "max_value": 0.0002980232238769531,
+      "avg_value": 0.0002573728561401367,
+      "last_value": 0.0002167224884033203,
+      "last_updated": "2025-10-03T15:16:50.583184",
+      "tags": {}
+    },
+    "system.ollama_available": {
+      "name": "system.ollama_available",
+      "metric_type": "gauge",
+      "count": 2,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.584830",
+      "tags": {}
+    },
+    "system.initialization_failed": {
+      "name": "system.initialization_failed",
+      "metric_type": "counter",
+      "count": 1,
+      "total": 1.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.589305",
+      "tags": {
+        "reason": "requirements_not_met"
+      }
+    },
+    "sandbox.session_created": {
+      "name": "sandbox.session_created",
+      "metric_type": "counter",
+      "count": 4,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 0.6666666666666666,
+      "last_value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 created for scenario payment-processing",
+      "last_updated": "2025-10-03T15:16:50.606199",
+      "tags": {
+        "scenario": "payment-processing"
+      }
+    },
+    "cli.sandbox_start": {
+      "name": "cli.sandbox_start",
+      "metric_type": "counter",
+      "count": 2,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.606604",
+      "tags": {
+        "scenario": "payment-processing"
+      }
+    },
+    "sandbox.session_started": {
+      "name": "sandbox.session_started",
+      "metric_type": "counter",
+      "count": 4,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 0.6666666666666666,
+      "last_value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 started",
+      "last_updated": "2025-10-03T15:16:50.606795",
+      "tags": {
+        "scenario": "payment-processing"
+      }
+    },
+    "sandbox.session_stopped": {
+      "name": "sandbox.session_stopped",
+      "metric_type": "counter",
+      "count": 4,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 0.6666666666666666,
+      "last_value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 stopped after 0s",
+      "last_updated": "2025-10-03T15:16:50.611928",
+      "tags": {
+        "scenario": "payment-processing"
+      }
+    },
+    "sandbox.session_duration": {
+      "name": "sandbox.session_duration",
+      "metric_type": "timer",
+      "count": 2,
+      "total": 0.0,
+      "min_value": 0,
+      "max_value": 0,
+      "avg_value": 0.0,
+      "last_value": 0,
+      "last_updated": "2025-10-03T15:16:50.611924",
+      "tags": {
+        "scenario": "payment-processing"
+      }
+    },
+    "cli.sandbox_stop_all": {
+      "name": "cli.sandbox_stop_all",
+      "metric_type": "counter",
+      "count": 1,
+      "total": 2.0,
+      "min_value": 2,
+      "max_value": 2,
+      "avg_value": 2.0,
+      "last_value": 2,
+      "last_updated": "2025-10-03T15:16:50.612293",
+      "tags": {}
+    },
+    "cli.metrics_show": {
+      "name": "cli.metrics_show",
+      "metric_type": "counter",
+      "count": 2,
+      "total": 2.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.860570",
+      "tags": {
+        "format": "json",
+        "category": "all"
+      }
+    },
+    "cli.metrics_export": {
+      "name": "cli.metrics_export",
+      "metric_type": "counter",
+      "count": 1,
+      "total": 1.0,
+      "min_value": 1,
+      "max_value": 1,
+      "avg_value": 1.0,
+      "last_value": 1,
+      "last_updated": "2025-10-03T15:16:50.878429",
+      "tags": {
+        "format": "json"
+      }
+    }
+  },
+  "counters": {
+    "system.status_check": 1,
+    "system.initialization_start": 3,
+    "system.initialization_success": 2,
+    "system.initialization_failed": 1,
+    "sandbox.session_created": 2,
+    "cli.sandbox_start": 2,
+    "sandbox.session_started": 2,
+    "sandbox.session_stopped": 2,
+    "cli.sandbox_stop_all": 2,
+    "cli.metrics_show": 2,
+    "cli.metrics_export": 1
+  },
+  "gauges": {
+    "system.ollama_status": 1.0,
+    "system.config_status": 1.0,
+    "system.ollama_available": 1.0
+  },
+  "timer_stats": {
+    "system.initialization_duration": {
+      "count": 2,
+      "min": 0.0002167224884033203,
+      "max": 0.0002980232238769531,
+      "avg": 0.0002573728561401367,
+      "total": 0.0005147457122802734
+    },
+    "sandbox.session_duration": {
+      "count": 2,
+      "min": 0.0,
+      "max": 0.0,
+      "avg": 0.0,
+      "total": 0.0
+    }
+  },
+  "recent_events": [
+    {
+      "name": "sandbox.session_stopped",
+      "value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 stopped after 0s",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.611928",
+      "tags": {},
+      "metadata": {
+        "description": "Session d48b49e3-adca-4964-afd4-e7b18098d275 stopped after 0s"
+      }
+    },
+    {
+      "name": "sandbox.session_stopped",
+      "value": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca stopped after 0s",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.611567",
+      "tags": {},
+      "metadata": {
+        "description": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca stopped after 0s"
+      }
+    },
+    {
+      "name": "sandbox.session_started",
+      "value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 started",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.606795",
+      "tags": {},
+      "metadata": {
+        "description": "Session d48b49e3-adca-4964-afd4-e7b18098d275 started"
+      }
+    },
+    {
+      "name": "sandbox.session_created",
+      "value": "Session d48b49e3-adca-4964-afd4-e7b18098d275 created for scenario payment-processing",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.606199",
+      "tags": {},
+      "metadata": {
+        "description": "Session d48b49e3-adca-4964-afd4-e7b18098d275 created for scenario payment-processing"
+      }
+    },
+    {
+      "name": "sandbox.session_started",
+      "value": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca started",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.602955",
+      "tags": {},
+      "metadata": {
+        "description": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca started"
+      }
+    },
+    {
+      "name": "sandbox.session_created",
+      "value": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca created for scenario food-ordering",
+      "metric_type": "event",
+      "timestamp": "2025-10-03T15:16:50.602220",
+      "tags": {},
+      "metadata": {
+        "description": "Session 80246d0a-3d52-47a7-8c96-f734cb47caca created for scenario food-ordering"
+      }
+    }
+  ],
+  "export_timestamp": "2025-10-03T15:16:50.878922"
+}
