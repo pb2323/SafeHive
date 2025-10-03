@@ -46,7 +46,7 @@
   - [x] 1.5 Create `default_config.yaml` with all guard settings, agent configurations, and thresholds
   - [x] 1.6 Set up structured logging with `loguru` and create `logger.py` utility
   - [x] 1.7 Create `models/request_response.py` with standardized data structures for agent communication
-  - [ ] 1.8 Create `models/agent_models.py` for agent state, memory, and conversation data
+  - [x] 1.8 Create `models/agent_models.py` for agent state, memory, and conversation data
   - [ ] 1.9 Implement `utils/ai_client.py` as LangChain wrapper for Ollama interactions
   - [ ] 1.10 Set up `utils/agent_memory.py` for LangChain memory management
 
