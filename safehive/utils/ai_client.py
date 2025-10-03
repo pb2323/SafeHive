@@ -528,7 +528,7 @@ def generate_agent_response_sync(
     )
 
 
-def check_ollama_connection(base_url: str = "http://localhost:11434") -> bool:
+def check_ollama_connection(base_url: str = "http://127.0.0.1:11434") -> bool:
     """
     Check if Ollama is running and accessible.
     
@@ -546,7 +546,7 @@ def check_ollama_connection(base_url: str = "http://localhost:11434") -> bool:
         return False
 
 
-def ensure_model_available(model_name: str, base_url: str = "http://localhost:11434") -> bool:
+def ensure_model_available(model_name: str, base_url: str = "http://127.0.0.1:11434") -> bool:
     """
     Ensure a model is available, pulling it if necessary.
     

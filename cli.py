@@ -250,11 +250,12 @@ def config_validate(
     """Validate configuration file."""
     console.print(f"🔍 Validating configuration file: {config_file}", style="blue")
     
-    config_loader = ConfigLoader()
-    if config_loader.load_config(config_file):
+    try:
+        config_loader = ConfigLoader()
+        config_loader.load_config()
         console.print("✅ Configuration is valid", style="green")
-    else:
-        console.print("❌ Configuration validation failed", style="red")
+    except Exception as e:
+        console.print(f"❌ Configuration validation failed: {e}", style="red")
         raise typer.Exit(1)
 
 

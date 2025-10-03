@@ -1,0 +1,9 @@
+2025-10-03 14:28:35 | INFO     | cli | SafeHive system initialized
+2025-10-03 14:28:35 | INFO     | config_loader | Loading configuration from: safehive/config/default_config.yaml
+2025-10-03 14:28:35 | DEBUG    | config_loader | Validating configuration data
+2025-10-03 14:28:35 | DEBUG    | config_loader | Configuration validation completed successfully
+2025-10-03 14:28:35 | INFO     | config_loader | Configuration loaded successfully
+2025-10-03 14:29:01 | INFO     | cli | SafeHive system initialized
+2025-10-03 14:29:01 | INFO     | config_loader | Loading configuration from: safehive/config/default_config.yaml
+2025-10-03 14:29:01 | INFO     | config_loader | Configuration loaded successfully
+2025-10-03 14:29:01 | INFO     | ai_client | Model llama3.2:3b not available, attempting to pull...
