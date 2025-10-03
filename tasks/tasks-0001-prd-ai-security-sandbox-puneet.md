@@ -52,7 +52,7 @@
 
 - [ ] 2.0 CLI Framework and User Interface
   - [x] 2.1 Create main `cli.py` entrypoint using typer framework
-  - [ ] 2.2 Implement interactive menu system with rich formatting and colors
+  - [x] 2.2 Implement interactive menu system with rich formatting and colors
   - [ ] 2.3 Add `--metrics` CLI flag to display summary statistics
   - [ ] 2.4 Create sandbox launch command with scenario selection
   - [ ] 2.5 Implement human-in-the-loop controls (approve/redact/quarantine/ignore)

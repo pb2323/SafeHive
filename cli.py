@@ -26,6 +26,7 @@ from safehive import __version__
 from safehive.config.config_loader import ConfigLoader
 from safehive.utils.logger import setup_logging, get_logger
 from safehive.utils.ai_client import check_ollama_connection, ensure_model_available
+from safehive.ui.interactive_menu import InteractiveMenu
 
 # Create the main typer app
 app = typer.Typer(
@@ -143,28 +144,42 @@ def init(
 ):
     """Initialize the SafeHive system."""
     console.print("🚀 Initializing SafeHive AI Security Sandbox...", style="bold blue")
-    
+
     # Setup logging
     setup_logging(level=log_level, log_file="logs/safehive.log")
     logger.info("SafeHive system initialized")
-    
+
     # Load configuration
     config_loader = ConfigLoader()
     if config_file:
         config_loader.load_config(config_file)
     else:
         config_loader.load_config()
-    
+
     # Check system requirements
     if not check_system_requirements():
         console.print("❌ System requirements not met. Please fix the issues above.", style="red")
         raise typer.Exit(1)
-    
+
     console.print("✅ SafeHive system initialized successfully!", style="green")
-    
+
     if interactive:
         console.print("\n🎯 Ready to start sandbox operations!")
         console.print("Use 'safehive sandbox start' to begin a security testing session.")
+
+
+@app.command()
+def menu():
+    """Launch the interactive menu system."""
+    console.print("🖥️ Launching SafeHive Interactive Menu...", style="bold blue")
+    
+    try:
+        menu = InteractiveMenu()
+        menu.run()
+    except Exception as e:
+        console.print(f"❌ Error launching interactive menu: {e}", style="red")
+        logger.error(f"Interactive menu error: {e}")
+        raise typer.Exit(1)
 
 
 # Sandbox Commands
