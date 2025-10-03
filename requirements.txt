@@ -1,0 +1,46 @@
+# SafeHive AI Security Sandbox - Python Dependencies
+# Core dependencies for the AI security sandbox platform
+
+# CLI Framework and User Interface
+typer>=0.9.0              # Modern CLI framework for Python
+rich>=13.0.0              # Rich text and beautiful formatting for terminal
+
+# AI Agent Framework and Runtime
+langchain>=0.1.0          # LangChain framework for AI agents
+langchain-community>=0.0.20  # Community integrations for LangChain
+langchain-ollama>=0.1.0   # Ollama integration for LangChain
+
+# Configuration Management
+pyyaml>=6.0               # YAML configuration file parsing
+
+# Logging and Monitoring
+loguru>=0.7.0             # Structured logging with better formatting
+
+# Data Generation and Testing
+faker>=20.0.0             # Generate fake data for testing and decoys
+
+# Development and Testing Dependencies
+pytest>=7.0.0             # Testing framework
+pytest-cov>=4.0.0         # Coverage reporting
+pytest-mock>=3.10.0       # Mocking utilities for tests
+black>=23.0.0             # Code formatting
+flake8>=6.0.0             # Linting
+mypy>=1.0.0               # Type checking
+
+# Optional: Enhanced AI capabilities
+# openai>=1.0.0            # OpenAI API (if needed for advanced features)
+# anthropic>=0.3.0         # Anthropic API (if needed for advanced features)
+
+# Security and Cryptography
+cryptography>=41.0.0      # Cryptographic utilities for secure data generation
+
+# Data Processing
+pandas>=2.0.0             # Data manipulation (if needed for analytics)
+numpy>=1.24.0             # Numerical computing (if needed for ML features)
+
+# Web Framework (if needed for future web interface)
+# fastapi>=0.100.0         # Modern web framework
+# uvicorn>=0.23.0          # ASGI server
+
+# Note: Ollama should be installed separately as a system dependency
+# See: https://ollama.ai/ for installation instructions
