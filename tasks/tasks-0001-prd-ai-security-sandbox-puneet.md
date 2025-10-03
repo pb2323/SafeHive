@@ -42,7 +42,7 @@
   - [x] 1.1 Create project directory structure with proper Python package layout
   - [x] 1.2 Set up `requirements.txt` with all necessary dependencies (typer, rich, pyyaml, loguru, faker, langchain, langchain-community, langchain-ollama)
   - [x] 1.3 Create base `Guard` class with standard interface (inspect, configure, get_status methods)
-  - [ ] 1.4 Implement `config_loader.py` to handle YAML configuration with validation
+  - [x] 1.4 Implement `config_loader.py` to handle YAML configuration with validation
   - [ ] 1.5 Create `default_config.yaml` with all guard settings, agent configurations, and thresholds
   - [ ] 1.6 Set up structured logging with `loguru` and create `logger.py` utility
   - [ ] 1.7 Create `models/request_response.py` with standardized data structures for agent communication
