@@ -91,6 +91,9 @@ class Response:
         timestamp = None
         if data.get("timestamp"):
             timestamp = datetime.fromisoformat(data["timestamp"])
+        else:
+            # If no timestamp provided, create a new one
+            timestamp = datetime.now()
         
         return cls(
             action=data["action"],
