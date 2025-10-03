@@ -1,0 +1,3 @@
+2025-10-03 13:54:36 | INFO     | test_logger | Test integration message
+2025-10-03 13:55:07 | INFO     | test_logger | Test integration message
+2025-10-03 13:55:07 | WARNING  | logger | Invalid log level 'INVALID_LEVEL', using 'INFO' instead

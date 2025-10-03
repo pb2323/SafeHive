@@ -39,6 +39,12 @@ def setup_logging(
         structured: Whether to use structured logging format
         **kwargs: Additional logging configuration options
     """
+    # Validate log level
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if level not in valid_levels:
+        loguru_logger.warning(f"Invalid log level '{level}', using 'INFO' instead")
+        level = "INFO"
+    
     # Remove default handler
     loguru_logger.remove()
     
@@ -68,33 +74,36 @@ def setup_logging(
     
     # File handler (if specified)
     if log_file:
-        # Ensure log directory exists
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        
-        if structured:
-            file_format = (
-                "{time:YYYY-MM-DD HH:mm:ss} | "
-                "{level: <8} | "
-                "{module} | "
-                "{message}"
+        try:
+            # Ensure log directory exists
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            
+            if structured:
+                file_format = (
+                    "{time:YYYY-MM-DD HH:mm:ss} | "
+                    "{level: <8} | "
+                    "{module} | "
+                    "{message}"
+                )
+            else:
+                file_format = (
+                    "{time:YYYY-MM-DD HH:mm:ss} | "
+                    "{level: <8} | "
+                    "{message}"
+                )
+            
+            loguru_logger.add(
+                log_file,
+                format=file_format,
+                level=level,
+                rotation=kwargs.get("max_file_size", "10MB"),
+                retention=kwargs.get("backup_count", 5),
+                compression="zip",
+                backtrace=True,
+                diagnose=True
             )
-        else:
-            file_format = (
-                "{time:YYYY-MM-DD HH:mm:ss} | "
-                "{level: <8} | "
-                "{message}"
-            )
-        
-        loguru_logger.add(
-            log_file,
-            format=file_format,
-            level=level,
-            rotation=kwargs.get("max_file_size", "10MB"),
-            retention=kwargs.get("backup_count", 5),
-            compression="zip",
-            backtrace=True,
-            diagnose=True
-        )
+        except Exception as e:
+            loguru_logger.warning(f"Failed to setup file logging to {log_file}: {e}")
 
 
 def setup_alert_logging(
