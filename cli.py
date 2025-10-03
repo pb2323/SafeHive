@@ -10,6 +10,7 @@ the AI security sandbox environment.
 import typer
 import asyncio
 import sys
+import time
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
@@ -27,6 +28,8 @@ from safehive.config.config_loader import ConfigLoader
 from safehive.utils.logger import setup_logging, get_logger
 from safehive.utils.ai_client import check_ollama_connection, ensure_model_available
 from safehive.ui.interactive_menu import InteractiveMenu
+from safehive.utils.metrics import get_metrics_collector, record_metric, MetricType
+from safehive.ui.metrics_display import MetricsDisplay, display_metrics_summary
 
 # Create the main typer app
 app = typer.Typer(
@@ -117,23 +120,36 @@ def info():
 
 
 @app.command()
-def status():
+def status(
+    metrics: bool = typer.Option(False, "--metrics", "-m", help="Show detailed metrics summary")
+):
     """Show system status."""
     console.print("📊 System Status", style="bold blue")
-    
+
     # Check Ollama
     ollama_status = "🟢 Running" if check_ollama_connection() else "🔴 Not Running"
     console.print(f"Ollama: {ollama_status}")
-    
+
     # Check configuration
     config_loader = ConfigLoader()
     config_status = "🟢 Loaded" if config_loader.load_config() else "🔴 Failed"
     console.print(f"Configuration: {config_status}")
-    
+
     # Check logs directory
     logs_dir = Path("logs")
     logs_status = "🟢 Available" if logs_dir.exists() else "🔴 Not Found"
     console.print(f"Logs Directory: {logs_status}")
+    
+    # Record status check metrics
+    record_metric("system.status_check", 1, MetricType.COUNTER, {"component": "cli"})
+    record_metric("system.ollama_status", 1 if check_ollama_connection() else 0, MetricType.GAUGE)
+    record_metric("system.config_status", 1 if config_loader.load_config() else 0, MetricType.GAUGE)
+    
+    # Show metrics if requested
+    if metrics:
+        console.print()
+        console.print("📈 Detailed Metrics Summary", style="bold blue")
+        display_metrics_summary()
 
 
 @app.command()
@@ -144,6 +160,10 @@ def init(
 ):
     """Initialize the SafeHive system."""
     console.print("🚀 Initializing SafeHive AI Security Sandbox...", style="bold blue")
+
+    # Record initialization start
+    init_start_time = time.time()
+    record_metric("system.initialization_start", 1, MetricType.COUNTER, {"log_level": log_level})
 
     # Setup logging
     setup_logging(level=log_level, log_file="logs/safehive.log")
@@ -159,7 +179,14 @@ def init(
     # Check system requirements
     if not check_system_requirements():
         console.print("❌ System requirements not met. Please fix the issues above.", style="red")
+        record_metric("system.initialization_failed", 1, MetricType.COUNTER, {"reason": "requirements_not_met"})
         raise typer.Exit(1)
+
+    # Record successful initialization
+    init_duration = time.time() - init_start_time
+    record_metric("system.initialization_success", 1, MetricType.COUNTER)
+    record_metric("system.initialization_duration", init_duration, MetricType.TIMER)
+    record_metric("system.ollama_available", 1 if check_ollama_connection() else 0, MetricType.GAUGE)
 
     console.print("✅ SafeHive system initialized successfully!", style="green")
 
@@ -352,26 +379,113 @@ def guard_status(
 # Metrics Commands
 @metrics_app.command("show")
 def metrics_show(
-    format: str = typer.Option("table", "--format", "-f", help="Output format (table, json, csv)"),
-    period: str = typer.Option("1h", "--period", "-p", help="Time period for metrics")
+    format: str = typer.Option("table", "--format", "-f", help="Output format (table, json, summary)"),
+    period: str = typer.Option("1h", "--period", "-p", help="Time period for metrics"),
+    category: str = typer.Option("all", "--category", "-c", help="Metrics category (all, system, security, agents)")
 ):
     """Show system metrics."""
     console.print(f"📊 System Metrics (Last {period})", style="bold blue")
     
-    # TODO: Implement actual metrics collection
-    console.print("🚧 Metrics collection will be implemented in future tasks", style="yellow")
+    # Record metrics command usage
+    record_metric("cli.metrics_show", 1, MetricType.COUNTER, {"format": format, "category": category})
+    
+    try:
+        display = MetricsDisplay()
+        
+        if format == "json":
+            # Export as JSON
+            json_data = display.export_metrics_display("json")
+            console.print(Syntax(json_data, "json", theme="monokai"))
+        elif format == "summary":
+            # Show summary format
+            summary_text = display.export_metrics_display("summary")
+            console.print(Panel(Text(summary_text, style="white"), title="Metrics Summary", border_style="blue"))
+        else:
+            # Show table format
+            if category == "all":
+                display.display_system_overview()
+                console.print()
+                display.display_metrics_table()
+            elif category == "system":
+                display.display_system_overview()
+                console.print()
+                display.display_counters()
+                console.print()
+                display.display_gauges()
+                console.print()
+                display.display_timers()
+            elif category == "security":
+                display.display_security_metrics()
+            elif category == "agents":
+                display.display_agent_metrics()
+            else:
+                console.print(f"[red]Unknown category: {category}[/red]")
+                console.print("Available categories: all, system, security, agents")
+    
+    except Exception as e:
+        console.print(f"[red]Error displaying metrics: {e}[/red]")
+        logger.error(f"Metrics display error: {e}")
 
 
 @metrics_app.command("export")
 def metrics_export(
     output_file: str = typer.Option("metrics.json", "--output", "-o", help="Output file path"),
-    format: str = typer.Option("json", "--format", "-f", help="Export format (json, csv)")
+    format: str = typer.Option("json", "--format", "-f", help="Export format (json, summary)")
 ):
     """Export metrics to file."""
     console.print(f"📤 Exporting metrics to {output_file}", style="blue")
     
-    # TODO: Implement metrics export
-    console.print("🚧 Metrics export will be implemented in future tasks", style="yellow")
+    # Record metrics export usage
+    record_metric("cli.metrics_export", 1, MetricType.COUNTER, {"format": format})
+    
+    try:
+        collector = get_metrics_collector()
+        success = collector.save_metrics(output_file)
+        
+        if success:
+            console.print(f"✅ Metrics exported successfully to {output_file}", style="green")
+        else:
+            console.print(f"❌ Failed to export metrics to {output_file}", style="red")
+    
+    except Exception as e:
+        console.print(f"[red]Error exporting metrics: {e}[/red]")
+        logger.error(f"Metrics export error: {e}")
+
+
+@metrics_app.command("dashboard")
+def metrics_dashboard(
+    refresh_interval: float = typer.Option(2.0, "--refresh", "-r", help="Refresh interval in seconds")
+):
+    """Show real-time metrics dashboard."""
+    console.print("📊 Starting real-time metrics dashboard...", style="bold blue")
+    console.print("Press Ctrl+C to exit", style="dim")
+    
+    # Record dashboard usage
+    record_metric("cli.metrics_dashboard", 1, MetricType.COUNTER, {"refresh_interval": refresh_interval})
+    
+    try:
+        display = MetricsDisplay()
+        display.display_metrics_dashboard(refresh_interval)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Dashboard stopped[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error running dashboard: {e}[/red]")
+        logger.error(f"Metrics dashboard error: {e}")
+
+
+@metrics_app.command("clear")
+def metrics_clear():
+    """Clear all metrics data."""
+    if Confirm.ask("Are you sure you want to clear all metrics data?"):
+        try:
+            collector = get_metrics_collector()
+            collector.clear_metrics()
+            console.print("✅ All metrics cleared successfully", style="green")
+        except Exception as e:
+            console.print(f"[red]Error clearing metrics: {e}[/red]")
+            logger.error(f"Metrics clear error: {e}")
+    else:
+        console.print("Metrics clear cancelled", style="yellow")
 
 
 # Main entry point
