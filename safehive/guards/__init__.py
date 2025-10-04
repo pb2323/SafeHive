@@ -22,6 +22,12 @@ from .guard_manager import (
     GuardManager, GuardRegistry, BaseGuard, GuardType, GuardStatus,
     GuardPriority, GuardConfiguration, GuardInstance
 )
+from .response_formatter import (
+    GuardResponseManager, ResponseLogger, ResponseFormatter, JSONResponseFormatter,
+    XMLResponseFormatter, TextResponseFormatter, MarkdownResponseFormatter,
+    ResponseFormat, LogLevel, ResponseType, ContextType, AgentContext,
+    GuardResponse, LogEntry
+)
 
 __all__ = [
     "PrivacySentry",
@@ -58,5 +64,19 @@ __all__ = [
     "GuardStatus",
     "GuardPriority",
     "GuardConfiguration",
-    "GuardInstance"
+    "GuardInstance",
+    "GuardResponseManager",
+    "ResponseLogger",
+    "ResponseFormatter",
+    "JSONResponseFormatter",
+    "XMLResponseFormatter",
+    "TextResponseFormatter",
+    "MarkdownResponseFormatter",
+    "ResponseFormat",
+    "LogLevel",
+    "ResponseType",
+    "ContextType",
+    "AgentContext",
+    "GuardResponse",
+    "LogEntry"
 ]
