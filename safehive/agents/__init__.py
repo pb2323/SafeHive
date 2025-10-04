@@ -8,6 +8,10 @@ orchestration, user simulation, and vendor interactions.
 
 from .base_agent import BaseAgent, AgentCapabilities
 from .state_manager import StateManager, AgentStateSnapshot, StateMetadata, create_state_manager, get_state_manager
+from .configuration import (
+    ConfigurationManager, AgentConfiguration, PersonalityProfile, ConfigurationTemplate,
+    PersonalityTrait, ResponseStyle, ConfigurationScope, get_configuration_manager, create_configuration_manager
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -18,5 +22,14 @@ __all__ = [
     "AgentStateSnapshot",
     "StateMetadata", 
     "create_state_manager",
-    "get_state_manager"
+    "get_state_manager",
+    "ConfigurationManager",
+    "AgentConfiguration",
+    "PersonalityProfile",
+    "ConfigurationTemplate",
+    "PersonalityTrait",
+    "ResponseStyle",
+    "ConfigurationScope",
+    "get_configuration_manager",
+    "create_configuration_manager"
 ]
