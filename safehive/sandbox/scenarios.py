@@ -827,7 +827,8 @@ Based on the user's request and your preferences, select the most appropriate re
                     original_input, 
                     order_details, 
                     conversation_turn,
-                    orchestrator_context
+                    orchestrator_context,
+                    restaurant
                 )
                 
                 if orchestrator_response["conversation_complete"]:
@@ -1140,7 +1141,7 @@ Based on the user's request and your preferences, select the most appropriate re
                 "order_status": "error"
             }
     
-    async def _process_vendor_response(self, vendor_response: str, user_input: str, order_details: Dict[str, Any], turn: int, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def _process_vendor_response(self, vendor_response: str, user_input: str, order_details: Dict[str, Any], turn: int, context: Dict[str, Any] = None, restaurant: Dict[str, Any] = None) -> Dict[str, Any]:
         """Process vendor response and generate orchestrator's next message."""
         vendor_response_lower = vendor_response.lower()
         
@@ -1192,7 +1193,7 @@ Based on the user's request and your preferences, select the most appropriate re
             # First turn: Vendor should provide menu information
             if any(word in vendor_response_lower for word in ["menu", "pizza", "burger", "sushi", "pasta", "salad"]):
                 # Vendor provided menu info, now select items based on user input
-                selected_items = self._select_items_from_menu(user_input, vendor_response)
+                selected_items = self._select_items_from_menu(user_input, vendor_response, restaurant['name'])
                 if selected_items:
                     order_details["items"] = selected_items
                     return {
@@ -1291,29 +1292,77 @@ Based on the user's request and your preferences, select the most appropriate re
                 "order_details": order_details
             }
     
-    def _select_items_from_menu(self, user_input: str, menu_response: str) -> List[str]:
+    def _select_items_from_menu(self, user_input: str, menu_response: str, restaurant_name: str) -> List[str]:
         """Select items from menu based on user input."""
         user_input_lower = user_input.lower()
         selected_items = []
         
-        # Simple item selection based on user input
-        if "pizza" in user_input_lower:
-            selected_items.append("Margherita Pizza")
-        elif "burger" in user_input_lower:
-            selected_items.append("Classic Burger")
-        elif "sushi" in user_input_lower:
-            selected_items.append("California Roll")
-        elif "pasta" in user_input_lower:
-            selected_items.append("Spaghetti Carbonara")
-        elif "salad" in user_input_lower:
-            selected_items.append("Caesar Salad")
-        elif "fries" in user_input_lower or "crispy" in user_input_lower:
-            selected_items.append("French Fries")
-        elif "milkshake" in user_input_lower:
-            selected_items.append("Milkshake")
-        else:
-            # Default fallback
-            selected_items.append("Margherita Pizza")
+        # Get the actual menu items for this restaurant
+        menu_items = self._get_menu_items(restaurant_name)
+        
+        # Try to find exact matches first
+        for item in menu_items:
+            item_name_lower = item['name'].lower()
+            item_description_lower = item.get('description', '').lower()
+            
+            # Check if any keyword from user input matches item name or description
+            if any(keyword in item_name_lower for keyword in user_input_lower.split()):
+                selected_items.append(item['name'])
+            # Also check description for items like "California Roll" which contains avocado
+            elif any(keyword in item_description_lower for keyword in user_input_lower.split()):
+                selected_items.append(item['name'])
+        
+        # If no exact matches, try partial matches
+        if not selected_items:
+            for item in menu_items:
+                item_name_lower = item['name'].lower()
+                if any(word in item_name_lower for word in user_input_lower.split() if len(word) > 3):
+                    selected_items.append(item['name'])
+        
+        # If still no matches, use intelligent fallback based on restaurant type
+        if not selected_items:
+            if restaurant_name == "Pizza Palace":
+                if "pizza" in user_input_lower or "margherita" in user_input_lower:
+                    selected_items.append("Margherita Pizza")
+                elif "pasta" in user_input_lower or "carbonara" in user_input_lower:
+                    selected_items.append("Spaghetti Carbonara")
+                elif "salad" in user_input_lower or "caesar" in user_input_lower:
+                    selected_items.append("Caesar Salad")
+                else:
+                    selected_items.append("Margherita Pizza")  # Default for Pizza Palace
+                    
+            elif restaurant_name == "Burger Barn":
+                if "burger" in user_input_lower or "cheese" in user_input_lower:
+                    selected_items.append("Cheeseburger")
+                elif "fries" in user_input_lower or "crispy" in user_input_lower:
+                    selected_items.append("French Fries")
+                elif "milkshake" in user_input_lower or "shake" in user_input_lower:
+                    selected_items.append("Milkshake")
+                else:
+                    selected_items.append("Cheeseburger")  # Default for Burger Barn
+                    
+            elif restaurant_name == "Sushi Express":
+                if "avocado" in user_input_lower or "california" in user_input_lower:
+                    selected_items.append("California Roll")  # California Roll contains avocado
+                elif "sushi" in user_input_lower or "roll" in user_input_lower:
+                    selected_items.append("California Roll")
+                elif "sashimi" in user_input_lower or "salmon" in user_input_lower:
+                    selected_items.append("Salmon Sashimi")
+                elif "dragon" in user_input_lower:
+                    selected_items.append("Dragon Roll")
+                elif "bento" in user_input_lower:
+                    selected_items.append("Bento Box")
+                elif "soup" in user_input_lower or "miso" in user_input_lower:
+                    selected_items.append("Miso Soup")
+                else:
+                    selected_items.append("California Roll")  # Default for Sushi Express
+                    
+            else:
+                # Fallback to first item if restaurant not recognized
+                if menu_items:
+                    selected_items.append(menu_items[0]['name'])
+                else:
+                    selected_items.append("Margherita Pizza")  # Ultimate fallback
         
         return selected_items
     
