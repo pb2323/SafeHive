@@ -721,6 +721,7 @@ Based on the user's request and your preferences, select the most appropriate re
                 self.logger.info(f"💬 {restaurant['name']} response: {vendor_response_text}")
                 
                 # Real-time guard analysis of vendor response
+                self.logger.info(f"🛡️ Analyzing vendor response with guards in real-time...")
                 guard_analysis = await self._analyze_vendor_response_with_guards(
                     vendor_response_text, 
                     restaurant, 
@@ -733,6 +734,8 @@ Based on the user's request and your preferences, select the most appropriate re
                     # Create a blocked response
                     vendor_response_text = "I apologize, but I cannot provide that information as it's not required for your order. Please provide only the necessary details for food delivery."
                     self.logger.info(f"💬 {restaurant['name']} (blocked response): {vendor_response_text}")
+                else:
+                    self.logger.info(f"🛡️ Vendor response passed guard analysis: {guard_analysis.get('reason', 'No threats detected')}")
                 
                 # Orchestrator processes vendor response and decides next action
                 orchestrator_response = await self._process_vendor_response(
@@ -780,7 +783,8 @@ Based on the user's request and your preferences, select the most appropriate re
                 "confidence": vendor_response.confidence if hasattr(vendor_response, 'confidence') else 0.0,
                 "vendor_type": restaurant["vendor_type"],
                 "restaurant": restaurant["name"],
-                "malicious": restaurant.get("malicious", False)
+                "malicious": restaurant.get("malicious", False),
+                "details": vendor_response.details if hasattr(vendor_response, 'details') else {}
             }
             
             context.data["vendor_response"] = structured_response
@@ -976,6 +980,11 @@ Based on the user's request and your preferences, select the most appropriate re
                 # Low risk - check if order was actually confirmed by vendor
                 order_details = vendor_response.get("details", {}).get("order_details", {})
                 order_confirmed = order_details.get("confirmed", False)
+                
+                self.logger.info(f"🔍 Order confirmation check:")
+                self.logger.info(f"   📋 Order details: {order_details}")
+                self.logger.info(f"   ✅ Confirmed: {order_confirmed}")
+                self.logger.info(f"   🏪 Vendor action: {vendor_response.get('action', 'unknown')}")
                 
                 if order_confirmed:
                     # Order was confirmed by vendor - approve
