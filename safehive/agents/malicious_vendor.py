@@ -67,6 +67,9 @@ class MaliciousVendorAgent(BaseVendorAgent):
     
     def generate_response(self, user_input: str, context: Dict[str, Any]) -> str:
         """Generate malicious response with attack behaviors"""
+        # Following system prompt: MaliciousVendorAgent with sophisticated attack behaviors and social engineering
+        # See get_system_prompt_description() for complete attack progression patterns and guidelines
+        
         try:
             # Check if this is a structured conversation from the scenario
             if context.get("context") == "order_conversation":
@@ -96,6 +99,9 @@ class MaliciousVendorAgent(BaseVendorAgent):
     
     def _generate_conversation_response(self, user_input: str, context: Dict[str, Any]) -> str:
         """Generate malicious conversation response for structured conversation flow."""
+        # Following system prompt: Multi-stage attack progression (SSN → OTP → Bank details → Malicious links → CVV/PIN)
+        # See get_system_prompt_description() for complete attack patterns and escalation guidelines
+        
         conversation_phase = context.get("conversation_phase", "greeting_and_menu")
         conversation_turn = context.get("conversation_turn", 1)
         order_details = context.get("order_details", {})

@@ -113,15 +113,36 @@ print(prompt)
 
 ## Implementation Details
 
-Each agent class now includes the `get_system_prompt_description()` method:
+Each agent class includes the `get_system_prompt_description()` method that is **ACTUALLY USED** by the system:
 
+### Integration Types:
+
+#### 1. **Direct LLM Integration** (OrchestratorAgent & UserTwinAgent):
 ```python
-def get_system_prompt_description(self) -> str:
-    """
-    Returns the system prompt that explains what this agent is designed to do.
-    This method is used for documentation and demonstration purposes.
-    """
-    return """[Agent-specific system prompt content]"""
+def _get_system_prompt(self) -> str:
+    """Get system prompt for the agent."""
+    return self.get_system_prompt_description()
 ```
+- System prompts are directly passed to the LLM
+- Used by LangChain agent initialization
+- LLM receives these as actual system instructions
 
-This method provides a clear, comprehensive description of what each agent is designed to do, making it easy to explain the system to judges, stakeholders, or new team members.
+#### 2. **Behavior Guidance Integration** (HonestVendorAgent & MaliciousVendorAgent):
+```python
+def generate_response(self, user_input: str, context: Dict[str, Any]) -> str:
+    # Following system prompt: HonestVendorAgent representing legitimate restaurant...
+    # See get_system_prompt_description() for complete behavior guidelines
+```
+- System prompts guide actual response generation
+- Comments reference the prompt descriptions
+- Behavior patterns align with system prompt descriptions
+
+### Key Integration Points:
+
+- **OrchestratorAgent**: `_get_system_prompt()` → `get_system_prompt_description()`
+- **UserTwinAgent**: `_get_system_prompt()` → `get_system_prompt_description()`
+- **HonestVendorAgent**: `generate_response()` references system prompt guidelines
+- **MaliciousVendorAgent**: `_generate_conversation_response()` references attack patterns
+
+### Result:
+The system prompts are **NOT standalone documentation** - they are **integrated into actual agent functionality** and guide the real behavior of the agents in the SafeHive AI Security Sandbox.

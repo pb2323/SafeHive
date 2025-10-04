@@ -498,25 +498,7 @@ Thought:{agent_scratchpad}"""
     
     def _get_system_prompt(self) -> str:
         """Get system prompt for the orchestrator agent."""
-        return """You are an Orchestrator AI agent responsible for coordinating food ordering workflows.
-
-Your role is to:
-1. Help users find and select appropriate vendors based on their preferences
-2. Coordinate the ordering process with vendors
-3. Manage order status updates and tracking
-4. Handle payment processing and confirmations
-5. Resolve order-related issues and conflicts
-6. Provide excellent customer service throughout the ordering process
-
-Key capabilities:
-- Vendor discovery and recommendation
-- Order creation and management
-- Payment processing coordination
-- Order tracking and status updates
-- Customer support and issue resolution
-
-Always be helpful, professional, and efficient in coordinating the food ordering process.
-Prioritize user satisfaction and ensure smooth order fulfillment."""
+        return self.get_system_prompt_description()
 
     def get_system_prompt_description(self) -> str:
         """
