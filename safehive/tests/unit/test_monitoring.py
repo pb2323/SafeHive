@@ -815,12 +815,13 @@ class TestAgentMonitor:
         
         monitor.register_agent(agent)
         
-        # Add mock data
-        mock_report = AgentHealthReport("test_agent", "user_twin", HealthStatus.HEALTHY, uptime_seconds=3600.0)
-        monitor._health_history["test_agent"].append(mock_report)
-        
-        mock_metrics = PerformanceMetrics("test_agent", total_requests=100, successful_requests=95)
-        monitor._performance_history["test_agent"].append(mock_metrics)
+        # Add mock data using thread-safe approach
+        with monitor._lock:
+            mock_report = AgentHealthReport("test_agent", "user_twin", HealthStatus.HEALTHY, uptime_seconds=3600.0)
+            monitor._health_history["test_agent"].append(mock_report)
+            
+            mock_metrics = PerformanceMetrics("test_agent", total_requests=100, successful_requests=95)
+            monitor._performance_history["test_agent"].append(mock_metrics)
         
         status = monitor.get_all_agents_status()
         

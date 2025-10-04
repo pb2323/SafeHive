@@ -776,20 +776,25 @@ class AgentMonitor:
     def get_all_agents_status(self) -> Dict[str, Dict[str, Any]]:
         """Get status summary for all agents."""
         with self._lock:
-            status = {}
-            for agent_id in self._agents.keys():
-                health_report = self.get_agent_health_report(agent_id, latest_only=True)
-                performance_metrics = self.get_agent_performance_metrics(agent_id, latest_only=True)
-                
-                status[agent_id] = {
-                    "health_status": health_report.overall_status.value if health_report else "unknown",
-                    "uptime_seconds": health_report.uptime_seconds if health_report else 0.0,
-                    "total_requests": performance_metrics.total_requests if performance_metrics else 0,
-                    "success_rate_percent": performance_metrics.calculate_success_rate() if performance_metrics else 0.0,
-                    "active_alerts": len(self._alert_manager.get_active_alerts(agent_id))
-                }
+            agent_ids = list(self._agents.keys())
+            health_histories = {agent_id: self._health_history.get(agent_id, []) for agent_id in agent_ids}
+            performance_histories = {agent_id: self._performance_history.get(agent_id, []) for agent_id in agent_ids}
+        
+        # Build status outside of lock to avoid deadlock
+        status = {}
+        for agent_id in agent_ids:
+            health_report = health_histories[agent_id][-1] if health_histories[agent_id] else None
+            performance_metrics = performance_histories[agent_id][-1] if performance_histories[agent_id] else None
             
-            return status
+            status[agent_id] = {
+                "health_status": health_report.overall_status.value if health_report else "unknown",
+                "uptime_seconds": health_report.uptime_seconds if health_report else 0.0,
+                "total_requests": performance_metrics.total_requests if performance_metrics else 0,
+                "success_rate_percent": performance_metrics.calculate_success_rate() if performance_metrics else 0.0,
+                "active_alerts": len(self._alert_manager.get_active_alerts(agent_id))
+            }
+        
+        return status
     
     def get_active_alerts(self, agent_id: Optional[str] = None) -> List[Alert]:
         """Get active alerts."""
