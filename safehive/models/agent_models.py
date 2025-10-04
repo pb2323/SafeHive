@@ -26,8 +26,10 @@ class AgentState(Enum):
     ACTIVE = "active"
     THINKING = "thinking"
     RESPONDING = "responding"
+    PROCESSING = "processing"
     ERROR = "error"
     DISABLED = "disabled"
+    STOPPED = "stopped"
 
 
 class MessageType(Enum):
