@@ -135,7 +135,7 @@ class FoodOrderingScenario(BaseScenario):
                 self.logger.info(f"🚫 Order declined due to security concerns with {selected_restaurant['name']}")
                 
                 # Find alternative vendor
-                alternative_vendor = await self._find_alternative_vendor(context, restaurants, selected_restaurant, user_preferences)
+                alternative_vendor = await self._find_alternative_vendor(context, restaurants, selected_restaurant)
                 
                 if alternative_vendor:
                     self.logger.info(f"🔄 Found alternative vendor: {alternative_vendor['name']}")
@@ -1408,7 +1408,7 @@ Based on the user's request and your preferences, select the most appropriate re
         
         return redacted_text
     
-    async def _find_alternative_vendor(self, context: ScenarioContext, restaurants: List[Dict[str, Any]], declined_restaurant: Dict[str, Any], user_preferences: Dict[str, Any]) -> Dict[str, Any]:
+    async def _find_alternative_vendor(self, context: ScenarioContext, restaurants: List[Dict[str, Any]], declined_restaurant: Dict[str, Any], user_preferences: Dict[str, Any] = None) -> Dict[str, Any]:
         """Find an alternative vendor for similar food options."""
         try:
             # Filter out the declined restaurant and malicious vendors
