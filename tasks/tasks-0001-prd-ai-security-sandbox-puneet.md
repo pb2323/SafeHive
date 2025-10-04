@@ -86,8 +86,8 @@
 - [x] 5.3 Implement `guards/task_navigator.py` to enforce original task constraints with agent reasoning
 - [x] 5.4 Add constraint validation logic (budget limits, dietary requirements) with agent context
 - [x] 5.5 Implement `guards/prompt_sanitizer.py` to filter malicious vendor inputs and agent communications
-  - [ ] 5.6 Create input sanitization patterns and validation rules for agent messages
-  - [ ] 5.7 Add guard configuration and enable/disable functionality with agent integration
+- [x] 5.6 Create input sanitization patterns and validation rules for agent messages
+- [x] 5.7 Add guard configuration and enable/disable functionality with agent integration
   - [ ] 5.8 Implement guard response formatting and logging with agent context
 
 - [ ] 6.0 Integration and Testing

@@ -18,6 +18,10 @@ from .prompt_sanitizer import (
     PromptSanitizer, ThreatType, ThreatSeverity, SanitizationAction,
     ThreatDetection, SanitizationResult, SanitizationRule
 )
+from .guard_manager import (
+    GuardManager, GuardRegistry, BaseGuard, GuardType, GuardStatus,
+    GuardPriority, GuardConfiguration, GuardInstance
+)
 
 __all__ = [
     "PrivacySentry",
@@ -46,5 +50,13 @@ __all__ = [
     "SanitizationAction",
     "ThreatDetection",
     "SanitizationResult",
-    "SanitizationRule"
+    "SanitizationRule",
+    "GuardManager",
+    "GuardRegistry",
+    "BaseGuard",
+    "GuardType",
+    "GuardStatus",
+    "GuardPriority",
+    "GuardConfiguration",
+    "GuardInstance"
 ]
