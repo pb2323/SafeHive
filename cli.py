@@ -111,7 +111,7 @@ def info():
     malicious vendors, payment services, and external APIs.
     
     Features:
-    • Four AI Security Guards (Privacy Sentry, Task Navigator, Prompt Sanitizer, Honeypot Guard)
+    • Three AI Security Guards (Privacy Sentry, Task Navigator, Prompt Sanitizer)
     • LangChain-powered AI agents with memory and reasoning
     • Interactive CLI with human-in-the-loop controls
     • Real-time attack detection and response
@@ -681,7 +681,7 @@ def guard_list():
         ("privacy-sentry", "Privacy Sentry", "🛡️", "Monitors data privacy and PII protection"),
         ("task-navigator", "Task Navigator", "🧭", "Guides AI agents through safe task execution"),
         ("prompt-sanitizer", "Prompt Sanitizer", "🧹", "Sanitizes and validates AI prompts"),
-        ("honeypot-guard", "Honeypot Guard", "🍯", "Detects and responds to malicious interactions")
+        ("mcp-server", "MCP Server", "🚀", "DoorDash integration for live ordering")
     ]
     
     table = Table(title="Available Security Guards")

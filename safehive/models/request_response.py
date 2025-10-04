@@ -112,7 +112,7 @@ class Response:
         return self.action == "block"
     
     def is_decoy(self) -> bool:
-        """Check if the response is a decoy/honeypot response."""
+        """Check if the response is a decoy/synthetic response."""
         return self.action == "decoy"
     
     def is_redacted(self) -> bool:
@@ -132,7 +132,7 @@ def create_block_response(reason: str, details: Optional[Dict[str, Any]] = None)
 
 
 def create_decoy_response(reason: str, decoy_data: Dict[str, Any]) -> Response:
-    """Create a decoy response with honeypot data."""
+    """Create a decoy response with synthetic data."""
     return Response(
         action="decoy", 
         reason=reason, 

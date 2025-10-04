@@ -4,22 +4,17 @@
 
 # Security Guards Configuration
 guards:
-  # Honeypot Guard - Detects attacks and serves decoy data
-  honeypot:
-    enabled: true
-    threshold: 3                    # Number of attempts before honeypot activation
-    attacks:                        # Attack patterns to detect
-      - "SQLi"                     # SQL Injection
-      - "XSS"                      # Cross-Site Scripting
-      - "PathTraversal"            # Path Traversal
-    decoy_data_types:              # Types of decoy data to generate
-      - "credit_cards"
-      - "order_history"
-      - "customer_profiles"
-      - "payment_info"
-    alert_stakeholders: true       # Send alerts when honeypot is triggered
-    decoy_quality: "high"          # Quality of decoy data (low, medium, high)
-    response_delay: 2              # Delay in seconds before serving decoy
+  # MCP Server - DoorDash integration for live ordering
+  mcp_server:
+    enabled: false                 # Disabled by default for safety
+    doordash_api_url: "https://api.doordash.com/v1"
+    api_key: "${DOORDASH_API_KEY}"
+    sandbox_mode: true             # Use sandbox environment for testing
+    order_validation: true         # Validate orders before placing
+    retry_attempts: 3              # Number of retry attempts for API failures
+    timeout_seconds: 30            # API request timeout
+    live_order_mode: false         # Enable live ordering (requires explicit flag)
+    safety_checks: true            # Perform safety checks before live orders
     
   # Privacy Sentry - Protects against PII over-sharing
   privacy_sentry:
@@ -262,7 +257,7 @@ metrics:
   # Security Metrics
   track_attack_attempts: true     # Track attack attempts
   track_blocked_requests: true    # Track blocked requests
-  track_honeypot_triggers: true   # Track honeypot activations
+  track_mcp_orders: true          # Track MCP server order attempts
   
   # Agent Metrics
   track_agent_interactions: true  # Track agent interactions
@@ -284,7 +279,7 @@ notifications:
   
   # Alert Conditions
   alert_on_attack: true          # Alert when attacks are detected
-  alert_on_honeypot: true        # Alert when honeypot is triggered
+  alert_on_mcp_order: true       # Alert when live order is placed via MCP
   alert_on_system_error: true    # Alert on system errors
   alert_threshold: 5             # Number of events before alerting
 

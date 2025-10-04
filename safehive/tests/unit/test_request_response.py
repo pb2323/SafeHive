@@ -216,13 +216,13 @@ class TestResponse:
         decoy_data = {"fake_credit_cards": ["4111-1111-1111-1111"]}
         response = Response(
             action="decoy",
-            reason="Honeypot triggered",
+            reason="Decoy response triggered",
             details={"decoy_data": decoy_data},
             confidence=1.0
         )
         
         assert response.action == "decoy"
-        assert response.reason == "Honeypot triggered"
+        assert response.reason == "Decoy response triggered"
         assert response.details["decoy_data"] == decoy_data
         assert response.confidence == 1.0
     
@@ -432,10 +432,10 @@ class TestConvenienceFunctions:
     def test_create_decoy_response(self):
         """Test create_decoy_response function."""
         decoy_data = {"fake_credit_cards": ["4111-1111-1111-1111"]}
-        response = create_decoy_response("Honeypot triggered", decoy_data)
+        response = create_decoy_response("Decoy response triggered", decoy_data)
         
         assert response.action == "decoy"
-        assert response.reason == "Honeypot triggered"
+        assert response.reason == "Decoy response triggered"
         assert response.details["decoy_data"] == decoy_data
         assert response.confidence == 1.0
     

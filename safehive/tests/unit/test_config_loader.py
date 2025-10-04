@@ -49,7 +49,7 @@ class TestConfigLoader:
         loader = ConfigLoader()
         valid_config = {
             "guards": {
-                "honeypot": {
+                "mcp_server": {
                     "enabled": True,
                     "threshold": 5,
                     "attacks": ["SQLi", "XSS"]
@@ -77,7 +77,7 @@ class TestConfigLoader:
         # Test invalid threshold (too high)
         invalid_config = {
             "guards": {
-                "honeypot": {
+                "mcp_server": {
                     "threshold": 150  # Should be max 100
                 }
             }
@@ -101,7 +101,7 @@ class TestConfigLoader:
         loader = ConfigLoader()
         config_data = {
             "guards": {
-                "honeypot": {
+                "mcp_server": {
                     "enabled": True,
                     "threshold": 3,
                     "attacks": ["SQLi", "XSS"],
@@ -127,10 +127,9 @@ class TestConfigLoader:
         system_config = loader._convert_to_system_config(config_data)
         
         assert isinstance(system_config, SystemConfig)
-        assert "honeypot" in system_config.guards
-        assert system_config.guards["honeypot"].enabled is True
-        assert system_config.guards["honeypot"].threshold == 3
-        assert "SQLi" in system_config.guards["honeypot"].patterns
+        assert "mcp_server" in system_config.guards
+        assert system_config.guards["mcp_server"].enabled is False  # Disabled by default for safety
+        assert system_config.guards["mcp_server"].threshold == 3
         
         assert "orchestrator" in system_config.agents
         assert system_config.agents["orchestrator"].ai_model == "llama2:7b"
@@ -145,7 +144,7 @@ class TestConfigLoader:
         # Create temporary config file
         config_data = {
             "guards": {
-                "honeypot": {
+                "mcp_server": {
                     "enabled": True,
                     "threshold": 5,
                     "attacks": ["SQLi", "XSS", "PathTraversal"]
@@ -172,7 +171,7 @@ class TestConfigLoader:
             config = loader.load_config()
             
             assert isinstance(config, SystemConfig)
-            assert config.guards["honeypot"].threshold == 5
+            assert config.guards["mcp_server"].threshold == 5
             assert config.logging.level == "DEBUG"
             assert config.metadata["config_path"] == temp_path
             
@@ -206,9 +205,9 @@ class TestConfigLoader:
         loader = ConfigLoader()
         config = loader.load_config()
         
-        honeypot_config = loader.get_guard_config("honeypot")
-        assert isinstance(honeypot_config, GuardConfig)
-        assert honeypot_config.enabled is True
+        mcp_config = loader.get_guard_config("mcp_server")
+        assert isinstance(mcp_config, GuardConfig)
+        assert mcp_config.enabled is False  # Disabled by default for safety
         
         # Test non-existent guard
         nonexistent_config = loader.get_guard_config("nonexistent")

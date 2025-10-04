@@ -155,11 +155,8 @@ class TestSandboxManager:
 
     def test_sandbox_manager_initialization(self):
         """Test SandboxManager initialization."""
-        assert len(self.manager.available_scenarios) == 4
+        assert len(self.manager.available_scenarios) == 1
         assert "food-ordering" in self.manager.available_scenarios
-        assert "payment-processing" in self.manager.available_scenarios
-        assert "api-integration" in self.manager.available_scenarios
-        assert "data-extraction" in self.manager.available_scenarios
         assert len(self.manager.active_sessions) == 0
         assert len(self.manager.session_history) == 0
 
@@ -167,7 +164,7 @@ class TestSandboxManager:
         """Test listing available scenarios."""
         scenarios = self.manager.list_scenarios()
         
-        assert len(scenarios) == 4
+        assert len(scenarios) == 1
         assert "food-ordering" in scenarios
         assert scenarios["food-ordering"].name == "food-ordering"
         assert scenarios["food-ordering"].description == "Food ordering workflow with malicious vendors"
@@ -180,7 +177,7 @@ class TestSandboxManager:
         assert scenario.name == "food-ordering"
         assert scenario.duration == 300
         assert len(scenario.agents) == 4
-        assert len(scenario.guards) == 4
+        assert len(scenario.guards) == 3
 
     def test_get_scenario_nonexistent(self):
         """Test getting a nonexistent scenario."""
@@ -299,7 +296,7 @@ class TestSandboxManager:
     def test_get_active_sessions(self):
         """Test getting all active sessions."""
         session1 = self.manager.create_session("food-ordering")
-        session2 = self.manager.create_session("payment-processing")
+        session2 = self.manager.create_session("food-ordering")
         
         active_sessions = self.manager.get_active_sessions()
         
@@ -519,18 +516,7 @@ class TestSandboxManagerIntegration:
         assert food_scenario.metadata["difficulty"] == "medium"
         assert "attack_types" in food_scenario.metadata
         
-        # Check payment-processing scenario
-        payment_scenario = scenarios["payment-processing"]
-        assert payment_scenario.metadata["category"] == "fintech"
-        assert payment_scenario.metadata["difficulty"] == "high"
-        
-        # Check API integration scenario
-        api_scenario = scenarios["api-integration"]
-        assert api_scenario.metadata["category"] == "api_security"
-        
-        # Check data extraction scenario
-        data_scenario = scenarios["data-extraction"]
-        assert data_scenario.metadata["category"] == "data_privacy"
+        # Only food-ordering scenario is available
 
     def test_session_metrics_tracking(self):
         """Test that session metrics are properly tracked."""

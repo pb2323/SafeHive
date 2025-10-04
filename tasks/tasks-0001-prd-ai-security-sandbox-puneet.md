@@ -110,7 +110,7 @@
 - **Logging**: All security events must be logged using the structured logging system
 
 ### Integration Points
-- **Honeypot Guard Integration**: Puneet's orchestrator will call Rutuja's honeypot guard through the standard guard interface
+- **MCP Server Integration**: Puneet's orchestrator will integrate with Rutuja's MCP server for DoorDash live ordering
 - **Vendor Agent Integration**: Puneet's orchestrator will communicate with Rutuja's vendor agents using the defined request/response format
 - **Metrics Collection**: Both developers will contribute metrics to the shared metrics system
 - **Configuration Sharing**: Both will use the same YAML configuration structure

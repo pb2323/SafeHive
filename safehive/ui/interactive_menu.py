@@ -319,9 +319,9 @@ class InteractiveMenu:
                 },
                 {
                     "key": "6",
-                    "label": "🍯 Honeypot Guard",
-                    "description": "Monitor honeypot detection guard",
-                    "action": "honeypot_guard_status"
+                    "label": "🚀 MCP Server",
+                    "description": "Monitor DoorDash MCP server status",
+                    "action": "mcp_server_status"
                 },
                 {
                     "key": "7",
@@ -583,8 +583,8 @@ class InteractiveMenu:
             self._show_task_navigator_status()
         elif action == "prompt_sanitizer_status":
             self._show_prompt_sanitizer_status()
-        elif action == "honeypot_guard_status":
-            self._show_honeypot_guard_status()
+        elif action == "mcp_server_status":
+            self._show_mcp_server_status()
         elif action == "recent_alerts":
             self._show_recent_alerts()
         
@@ -637,7 +637,7 @@ food-ordering workflow where AI assistants interact with potentially malicious
 vendors, payment services, and external APIs.
 
 ## Features
-- **Four AI Security Guards**: Privacy Sentry, Task Navigator, Prompt Sanitizer, Honeypot Guard
+- **Three AI Security Guards**: Privacy Sentry, Task Navigator, Prompt Sanitizer
 - **LangChain-powered AI agents** with memory and reasoning
 - **Interactive CLI** with human-in-the-loop controls
 - **Real-time attack detection** and response
@@ -842,7 +842,7 @@ For more information, visit the project documentation or contact the development
             ("privacy-sentry", "Privacy Sentry", "🛡️", "Monitors data privacy and PII protection"),
             ("task-navigator", "Task Navigator", "🧭", "Guides AI agents through safe task execution"),
             ("prompt-sanitizer", "Prompt Sanitizer", "🧹", "Sanitizes and validates AI prompts"),
-            ("honeypot-guard", "Honeypot Guard", "🍯", "Detects and responds to malicious interactions")
+            ("mcp-server", "MCP Server", "🚀", "DoorDash integration for live ordering")
         ]
         
         table = Table(title="Security Guard Settings")
@@ -968,7 +968,7 @@ For more information, visit the project documentation or contact the development
             ("privacy-sentry", "Privacy Sentry", "🛡️", "Monitors data privacy and PII protection"),
             ("task-navigator", "Task Navigator", "🧭", "Guides AI agents through safe task execution"),
             ("prompt-sanitizer", "Prompt Sanitizer", "🧹", "Sanitizes and validates AI prompts"),
-            ("honeypot-guard", "Honeypot Guard", "🍯", "Detects and responds to malicious interactions")
+            ("mcp-server", "MCP Server", "🚀", "DoorDash integration for live ordering")
         ]
         
         table = Table(title="Available Security Guards")
@@ -1019,12 +1019,12 @@ For more information, visit the project documentation or contact the development
         
         self._wait_for_key()
     
-    def _show_honeypot_guard_status(self) -> None:
-        """Show honeypot guard status."""
+    def _show_mcp_server_status(self) -> None:
+        """Show MCP server status."""
         self.console.clear()
         
-        self.console.print("[blue]🍯 Honeypot Guard Status[/blue]")
-        self.console.print("[yellow]🚧 Honeypot guard status will be implemented in future tasks[/yellow]")
+        self.console.print("[blue]🚀 MCP Server Status[/blue]")
+        self.console.print("[yellow]🚧 MCP server status will be implemented in future tasks[/yellow]")
         
         self._wait_for_key()
     

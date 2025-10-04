@@ -50,37 +50,36 @@ class TestDefaultConfig:
             config_data = yaml.safe_load(file)
         
         guards = config_data["guards"]
-        required_guards = ["honeypot", "privacy_sentry", "task_navigator", "prompt_sanitizer"]
+        required_guards = ["mcp_server", "privacy_sentry", "task_navigator", "prompt_sanitizer"]
         
         for guard in required_guards:
             assert guard in guards, f"Missing guard configuration: {guard}"
             assert "enabled" in guards[guard], f"Guard {guard} missing 'enabled' setting"
             assert isinstance(guards[guard]["enabled"], bool), f"Guard {guard} 'enabled' must be boolean"
     
-    def test_honeypot_guard_configuration(self):
-        """Test honeypot guard specific configuration."""
+    def test_mcp_server_configuration(self):
+        """Test MCP server specific configuration."""
         config_path = "safehive/config/default_config.yaml"
         
         with open(config_path, 'r', encoding='utf-8') as file:
             config_data = yaml.safe_load(file)
         
-        honeypot = config_data["guards"]["honeypot"]
+        mcp_server = config_data["guards"]["mcp_server"]
         
         # Check required settings
-        assert "threshold" in honeypot, "Honeypot missing 'threshold' setting"
-        assert isinstance(honeypot["threshold"], int), "Honeypot threshold must be integer"
-        assert honeypot["threshold"] > 0, "Honeypot threshold must be positive"
+        assert "doordash_api_url" in mcp_server, "MCP server missing 'doordash_api_url' setting"
+        assert isinstance(mcp_server["doordash_api_url"], str), "MCP server API URL must be string"
+        assert mcp_server["doordash_api_url"].startswith("http"), "MCP server API URL must be valid URL"
         
-        assert "attacks" in honeypot, "Honeypot missing 'attacks' setting"
-        assert isinstance(honeypot["attacks"], list), "Honeypot attacks must be list"
-        assert len(honeypot["attacks"]) > 0, "Honeypot must have at least one attack pattern"
+        assert "sandbox_mode" in mcp_server, "MCP server missing 'sandbox_mode' setting"
+        assert isinstance(mcp_server["sandbox_mode"], bool), "MCP server sandbox_mode must be boolean"
         
-        assert "decoy_data_types" in honeypot, "Honeypot missing 'decoy_data_types' setting"
-        assert isinstance(honeypot["decoy_data_types"], list), "Honeypot decoy_data_types must be list"
-        assert len(honeypot["decoy_data_types"]) > 0, "Honeypot must have at least one decoy data type"
+        assert "order_validation" in mcp_server, "MCP server missing 'order_validation' setting"
+        assert isinstance(mcp_server["order_validation"], bool), "MCP server order_validation must be boolean"
         
-        assert "alert_stakeholders" in honeypot, "Honeypot missing 'alert_stakeholders' setting"
-        assert isinstance(honeypot["alert_stakeholders"], bool), "Honeypot alert_stakeholders must be boolean"
+        assert "retry_attempts" in mcp_server, "MCP server missing 'retry_attempts' setting"
+        assert isinstance(mcp_server["retry_attempts"], int), "MCP server retry_attempts must be integer"
+        assert mcp_server["retry_attempts"] > 0, "MCP server retry_attempts must be positive"
     
     def test_agents_configuration(self):
         """Test agents configuration section."""
@@ -235,7 +234,7 @@ class TestDefaultConfig:
         config = loader.load_config()
         
         # Test that all guards are properly configured
-        assert "honeypot" in config.guards, "Honeypot guard not loaded"
+        assert "mcp_server" in config.guards, "MCP server not loaded"
         assert "privacy_sentry" in config.guards, "Privacy sentry guard not loaded"
         assert "task_navigator" in config.guards, "Task navigator guard not loaded"
         assert "prompt_sanitizer" in config.guards, "Prompt sanitizer guard not loaded"
@@ -247,10 +246,9 @@ class TestDefaultConfig:
         assert "vendors_malicious_vendor" in config.agents, "Malicious vendor not loaded"
         
         # Test specific configurations
-        honeypot_config = config.guards["honeypot"]
-        assert honeypot_config.enabled is True, "Honeypot should be enabled by default"
-        assert honeypot_config.threshold == 3, "Honeypot threshold should be 3"
-        assert "SQLi" in honeypot_config.patterns, "Honeypot should detect SQLi"
+        mcp_config = config.guards["mcp_server"]
+        assert mcp_config.enabled is False, "MCP server should be disabled by default for safety"
+        assert "doordash_api_url" in mcp_config.settings, "MCP server should have API URL setting"
         
         orchestrator_config = config.agents["orchestrator"]
         assert orchestrator_config.ai_model == "llama2:7b", "Orchestrator should use llama2:7b"

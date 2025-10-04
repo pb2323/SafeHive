@@ -146,12 +146,14 @@ Both developers will use the same YAML configuration format:
 
 ```yaml
 # config.yaml
-honeypot:
+mcp_server:
   enabled: true
-  threshold: 3
-  attacks: ["SQLi", "XSS", "PathTraversal"]
-  decoy_data_types: ["credit_cards", "order_history", "customer_profiles"]
-  alert_stakeholders: true
+  doordash_api_url: "https://api.doordash.com/v1"
+  api_key: "${DOORDASH_API_KEY}"
+  sandbox_mode: true
+  order_validation: true
+  retry_attempts: 3
+  timeout_seconds: 30
 
 privacy_sentry:
   enabled: true
@@ -278,7 +280,7 @@ class MetricsCollector:
 Each developer will provide mock implementations of their components:
 
 **Puneet's Mocks for Rutuja:**
-- Mock honeypot guard that always returns "allow"
+- Mock MCP server that simulates DoorDash API responses
 - Mock LangChain vendor agents with predictable responses
 - Mock metrics collector for testing
 - Mock agent memory and conversation history

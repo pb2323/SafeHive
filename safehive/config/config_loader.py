@@ -103,7 +103,7 @@ class ConfigLoader:
                 "type": "dict",
                 "required": False,
                 "keys": {
-                    "honeypot": {
+                    "mcp_server": {
                         "type": "dict",
                         "required": False,
                         "keys": {
@@ -414,7 +414,7 @@ class ConfigLoader:
         
         # Default guards configuration
         guards = {
-            "honeypot": GuardConfig(
+            "mcp_server": GuardConfig(
                 enabled=True,
                 threshold=3,
                 patterns=["SQLi", "XSS", "PathTraversal"],

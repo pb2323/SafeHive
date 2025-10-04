@@ -257,7 +257,7 @@ class TestGuardCommands:
         assert "privacy-sentry" in result.output
         assert "task-navigator" in result.output
         assert "prompt-sanitizer" in result.output
-        assert "honeypot-guard" in result.output
+        assert "mcp-server" in result.output
     
     def test_guard_status_command(self):
         """Test guard status command."""

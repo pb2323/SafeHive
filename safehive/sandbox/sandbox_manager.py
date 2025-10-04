@@ -174,7 +174,7 @@ class SandboxManager:
                 duration=300,  # 5 minutes
                 interactive=True,
                 agents=["orchestrator", "user-twin", "honest-vendor", "malicious-vendor"],
-                guards=["privacy-sentry", "task-navigator", "prompt-sanitizer", "honeypot-guard"],
+                guards=["privacy-sentry", "task-navigator", "prompt-sanitizer"],
                 parameters={
                     "max_orders": 10,
                     "vendor_types": ["restaurant", "fast_food", "delivery"],
@@ -184,60 +184,6 @@ class SandboxManager:
                     "category": "e-commerce",
                     "difficulty": "medium",
                     "attack_types": ["data_exfiltration", "payment_fraud", "social_engineering"]
-                }
-            ),
-            "payment-processing": SandboxScenario(
-                name="payment-processing",
-                description="Payment processing with security testing",
-                duration=180,  # 3 minutes
-                interactive=True,
-                agents=["orchestrator", "user-twin", "payment-processor", "fraud-detector"],
-                guards=["privacy-sentry", "honeypot-guard", "prompt-sanitizer"],
-                parameters={
-                    "transaction_types": ["purchase", "refund", "chargeback"],
-                    "amount_range": [1, 1000],
-                    "currency_types": ["USD", "EUR", "BTC"]
-                },
-                metadata={
-                    "category": "fintech",
-                    "difficulty": "high",
-                    "attack_types": ["payment_fraud", "card_testing", "chargeback_fraud"]
-                }
-            ),
-            "api-integration": SandboxScenario(
-                name="api-integration",
-                description="API integration security testing",
-                duration=240,  # 4 minutes
-                interactive=True,
-                agents=["orchestrator", "user-twin", "api-client", "api-server"],
-                guards=["prompt-sanitizer", "task-navigator", "honeypot-guard"],
-                parameters={
-                    "api_endpoints": ["/users", "/orders", "/payments", "/admin"],
-                    "http_methods": ["GET", "POST", "PUT", "DELETE"],
-                    "auth_types": ["bearer", "api_key", "oauth"]
-                },
-                metadata={
-                    "category": "api_security",
-                    "difficulty": "medium",
-                    "attack_types": ["injection", "authentication_bypass", "rate_limiting"]
-                }
-            ),
-            "data-extraction": SandboxScenario(
-                name="data-extraction",
-                description="Data extraction and privacy testing",
-                duration=360,  # 6 minutes
-                interactive=True,
-                agents=["orchestrator", "user-twin", "data-analyst", "privacy-auditor"],
-                guards=["privacy-sentry", "task-navigator", "prompt-sanitizer"],
-                parameters={
-                    "data_types": ["personal", "financial", "health", "behavioral"],
-                    "extraction_methods": ["query", "scraping", "api", "export"],
-                    "privacy_levels": ["public", "internal", "confidential", "restricted"]
-                },
-                metadata={
-                    "category": "data_privacy",
-                    "difficulty": "high",
-                    "attack_types": ["data_exfiltration", "privacy_violation", "unauthorized_access"]
                 }
             )
         }

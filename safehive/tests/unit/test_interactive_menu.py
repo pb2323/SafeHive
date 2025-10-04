@@ -503,9 +503,9 @@ class TestInteractiveMenu:
     @patch('safehive.ui.interactive_menu.Console.clear')
     @patch('safehive.ui.interactive_menu.Console.print')
     @patch.object(InteractiveMenu, '_wait_for_key')
-    def test_show_honeypot_guard_status(self, mock_wait, mock_print, mock_clear):
-        """Test showing honeypot guard status."""
-        self.menu._show_honeypot_guard_status()
+    def test_show_mcp_server_status(self, mock_wait, mock_print, mock_clear):
+        """Test showing MCP server status."""
+        self.menu._show_mcp_server_status()
         
         mock_clear.assert_called_once()
         assert mock_print.call_count > 0
@@ -849,8 +849,8 @@ class TestInteractiveMenuIntegration:
                 method_name = "_show_task_navigator_status"
             elif action == "prompt_sanitizer_status":
                 method_name = "_show_prompt_sanitizer_status"
-            elif action == "honeypot_guard_status":
-                method_name = "_show_honeypot_guard_status"
+            elif action == "mcp_server_status":
+                method_name = "_show_mcp_server_status"
             elif action == "recent_alerts":
                 method_name = "_show_recent_alerts"
             elif action == "system_metrics":

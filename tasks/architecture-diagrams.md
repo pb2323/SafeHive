@@ -26,8 +26,8 @@
 │  ┌─────────────────────────────────────────────────────────────────────────────┐ │
 │  │                        Security Guards Layer                               │ │
 │  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │ │
-│  │  │   Privacy   │ │    Task     │ │   Prompt    │ │  Honeypot   │           │ │
-│  │  │   Sentry    │ │  Navigator  │ │ Sanitizer   │ │   Guard     │           │ │
+│  │  │   Privacy   │ │    Task     │ │   Prompt    │ │   MCP       │           │ │
+│  │  │   Sentry    │ │  Navigator  │ │ Sanitizer   │ │   Server    │           │ │
 │  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘           │ │
 │  └─────────────────────────────────────────────────────────────────────────────┘ │
 │           │                       │                       │                     │
@@ -92,7 +92,7 @@
                        └─────────────────┘
 ```
 
-## Attack Detection & Honeypot Flow
+## Attack Detection & MCP Integration Flow
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -110,7 +110,7 @@
                                 │                       │
                                 ▼                       ▼
                        ┌─────────────────┐    ┌─────────────────┐
-                       │  Normal         │    │  Honeypot       │
+                       │  Normal         │    │  MCP Server     │
                        │  Response       │    │  Activation     │
                        │  (Block/Allow)  │    │  (Decoy Data)   │
                        └─────────────────┘    └─────────────────┘
@@ -199,7 +199,7 @@
 │           │                       │                       │                     │
 │           ▼                       ▼                       ▼                     │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐ │
-│  │                        Honeypot Guard                                      │ │
+│  │                        MCP Server Integration                              │ │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │ │
 │  │  │  Attack         │  │  Threshold      │  │  Decoy Data     │             │ │
 │  │  │  Detection      │  │  Management     │  │  Generation     │             │ │
@@ -251,6 +251,41 @@
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## MCP Server Integration Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Orchestrator  │───►│   MCP Server    │───►│   DoorDash      │
+│   Agent         │    │   Interface     │    │   API           │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Security      │    │   Credential    │    │   Live Order    │
+│   Guards        │    │   Management    │    │   Processing    │
+│                 │    │                 │    │                 │
+│ • Privacy       │    │ • API Keys      │    │ • Order         │
+│ • Task Nav      │    │ • Sandbox Mode  │    │   Validation    │
+│ • Prompt San    │    │ • Live Mode     │    │ • Payment       │
+└─────────────────┘    └─────────────────┘    │ • Delivery      │
+                                               └─────────────────┘
+                                                        │
+                                                        ▼
+                                               ┌─────────────────┐
+                                               │   Order         │
+                                               │   Confirmation  │
+                                               │   & Tracking    │
+                                               └─────────────────┘
+```
+
+### MCP Server Flow
+1. **Testing Mode**: Orchestrator communicates with vendor agents (simulated)
+2. **Live Mode**: Orchestrator communicates with MCP server (real DoorDash API)
+3. **Security Guards**: All communications pass through security guards regardless of mode
+4. **Credential Management**: Secure handling of DoorDash API credentials
+5. **Order Validation**: Safety checks before placing real orders
+6. **Confirmation**: Real order tracking and delivery updates
+
 ## Deployment & Configuration Flow
 
 ```
@@ -292,10 +327,10 @@
 - **Implementation**: Four specialized guards with different responsibilities
 - **Benefits**: Comprehensive security coverage, modular design
 
-### 4. **Honeypot Deception**
-- **Rationale**: Unique differentiator for AI security demonstrations
-- **Implementation**: Threshold-based activation with realistic decoy data
-- **Benefits**: Advanced attack detection, compelling demos
+### 4. **MCP Server Integration**
+- **Rationale**: Enable live DoorDash ordering for successful demonstrations
+- **Implementation**: Secure API integration with sandbox and live modes
+- **Benefits**: Real-world validation, compelling demos, separation of testing vs live ordering
 
 ### 5. **Human-in-the-Loop Controls**
 - **Rationale**: Allow human oversight and decision-making
@@ -310,7 +345,7 @@
 | **Orchestrator Agent** | < 2s | Medium | Medium |
 | **Security Guards** | < 1s | Low | Low |
 | **Vendor Agents** | < 2s | Medium | Medium |
-| **Honeypot Guard** | < 1s | Low | Low |
+| **MCP Server** | < 5s | Low | Low |
 | **Memory Operations** | < 500ms | Medium | Low |
 
 ## Scalability Considerations

@@ -6,12 +6,12 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 
 **Problem Statement:** As AI assistants become integrated into everyday business workflows (like food ordering), they face new security risks from malicious actors who may attempt to manipulate AI behavior through prompt injection, data exfiltration, or social engineering attacks. Traditional security measures are insufficient for these AI-specific threats.
 
-**Goal:** Create an interactive sandbox that demonstrates AI security vulnerabilities and showcases advanced protection mechanisms through four specialized AI security guards, with a focus on the innovative Honeypot Guard that uses deception-based defense.
+**Goal:** Create an interactive sandbox that demonstrates AI security vulnerabilities and showcases advanced protection mechanisms through three specialized AI security guards, with optional real-world integration via MCP server for live demonstrations.
 
 ## Goals
 
 1. **Demonstrate AI Security Risks:** Provide a realistic environment where users can observe how AI assistants can be manipulated by malicious actors
-2. **Showcase Advanced AI Defense:** Highlight four distinct AI security guard mechanisms, with special emphasis on the Honeypot Guard's deception-based approach
+2. **Showcase Advanced AI Defense:** Highlight three distinct AI security guard mechanisms for comprehensive AI protection
 3. **Enable Interactive Learning:** Allow security teams and stakeholders to experience AI attacks and defenses in a controlled, educational environment
 4. **Support Client Demonstrations:** Provide a compelling, hands-on demo tool for A10's AI security solutions
 5. **Generate Actionable Insights:** Produce metrics and logs that help organizations understand their AI security posture
@@ -41,36 +41,36 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 6. **Privacy Sentry:** The system must detect and prevent over-sharing of personal data (credit card numbers, addresses, health preferences)
 7. **Task Navigator:** The system must ensure AI assistants stick to original task constraints (e.g., "vegetarian pizza under $20")
 8. **Prompt Sanitizer:** The system must filter malicious or manipulative vendor inputs before they reach the AI assistant
-9. **Honeypot Guard:** The system must detect known attack patterns (SQL injection, XSS, Path Traversal) and serve convincing dummy data after threshold violations
 
-### Attack Detection & Response
-10. The system must detect at least three OWASP attack patterns: SQL injection, XSS, and Path Traversal
-11. The system must maintain per-source-IP attempt counters with configurable thresholds (default: 3 attempts)
-12. The system must generate and serve synthetic dummy data (fake credit cards, order history) when attack thresholds are exceeded
-13. The system must alert stakeholders with detailed incident information when attacks are detected
-14. The system must provide CLI options to approve decoy responses, quarantine vendors, or ignore incidents
+### MCP Server Integration
+9. The system must support integration with DoorDash via MCP server for live order demonstrations
+10. The system must provide a CLI flag to enable real-world ordering (--live-order) for successful demonstrations
+11. The system must maintain separation between testing (honest vendor agents) and live demonstrations (MCP server)
+12. The system must validate and secure MCP server communications before placing real orders
 
 ### Configuration & Monitoring
-15. The system must support YAML-based configuration for enabling/disabling guards and setting thresholds
-16. The system must provide a `--metrics` CLI flag that displays summary statistics (attacks caught, decoys served, alerts raised)
-17. The system must generate structured logs for all security events and incidents
-18. The system must support both pre-configured attack scenarios and custom user-defined scenarios
+13. The system must support YAML-based configuration for enabling/disabling guards and setting thresholds
+14. The system must provide a `--metrics` CLI flag that displays summary statistics (attacks caught, incidents logged, alerts raised)
+15. The system must generate structured logs for all security events and incidents
+16. The system must support both pre-configured attack scenarios and custom user-defined scenarios
 
 ### Integration & Data Handling
-19. The system must use Ollama for local AI model execution to ensure privacy and control
-20. The system must support export of incident data and metrics for integration with existing security tools
-21. The system must handle only synthetic/dummy data in the MVP to avoid compliance issues
-22. The system must provide clear separation between test data and any real data if added in future versions
+17. The system must use Ollama for local AI model execution to ensure privacy and control
+18. The system must support export of incident data and metrics for integration with existing security tools
+19. The system must handle only synthetic/dummy data in testing mode to avoid compliance issues
+20. The system must provide clear separation between test data (vendor agents) and live data (MCP server)
+21. The system must securely manage MCP server credentials and API keys for DoorDash integration
 
 ## Non-Goals (Out of Scope)
 
-1. **Real PII Handling:** The MVP will not handle real personal information or payment data
+1. **Real PII Handling:** The MVP will not handle real personal information or payment data in testing mode
 2. **Production Deployment:** This is a demonstration and testing tool, not a production security solution
 3. **Advanced ML Detection:** The MVP will use rule-based detection rather than machine learning models
 4. **Multi-tenant Support:** The system will run as a single-user CLI tool
-5. **Cloud Integration:** The MVP will be a local-only tool without cloud connectivity
+5. **Cloud Integration:** The MVP will be primarily local with optional MCP server integration
 6. **Real-time Network Monitoring:** The system simulates attacks rather than monitoring live network traffic
 7. **Compliance Certification:** The MVP will not include formal compliance certifications (SOC 2, GDPR, etc.)
+8. **Multiple Vendor Integration:** The MVP will focus on DoorDash integration only via MCP server
 
 ## Design Considerations
 
@@ -79,11 +79,13 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 - Provide clear, actionable prompts for human-in-the-loop decisions
 - Display real-time status updates during attack simulations
 - Use consistent color coding: red for attacks, green for safe operations, yellow for warnings
+- Provide clear indication when running in live-order mode vs testing mode
 
 ### Agent Communication
 - Implement standardized request/response formats between orchestrator and guards
 - Use clear, descriptive logging with structured data for easy parsing
 - Provide detailed incident reports with attack patterns, source information, and response actions
+- Support both simulated vendor agents (for testing) and MCP server integration (for live orders)
 
 ### Configuration Management
 - Use YAML configuration files for easy modification of guard settings
@@ -102,15 +104,17 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 - **Data Generation:** faker for synthetic data creation
 - **Agent Memory:** LangChain memory modules for conversation history
 - **Tool Integration:** LangChain tools for external system interactions
+- **MCP Integration:** MCP server for DoorDash API integration and live ordering
 
 ### Architecture Components
 - **Orchestrator Agent:** LangChain-powered AI assistant with memory, reasoning, and tool calling for managing food orders
 - **User Twin Agent:** LangChain agent that maintains personal preferences, constraints, and decision-making capabilities
 - **Vendor Agents:** LangChain agents (honest and malicious) with distinct personalities and attack behaviors
-- **Security Guards:** Four specialized protection mechanisms that intercept and analyze agent communications
+- **Security Guards:** Three specialized protection mechanisms that intercept and analyze agent communications
 - **CLI Sandbox:** Interactive environment with human-in-the-loop controls for agent interactions
 - **Agent Memory System:** LangChain memory modules for maintaining conversation context and learning
 - **Tool Registry:** LangChain tools for external system interactions (payment, inventory, etc.)
+- **MCP Server Integration:** DoorDash API integration for live order demonstrations
 
 ### Performance Requirements
 - System must respond to user inputs within 2 seconds
@@ -119,13 +123,15 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 - Log generation must not impact system performance
 
 ### Security Considerations
-- All AI models must run locally via Ollama (no external API calls)
+- All AI models must run locally via Ollama (no external API calls except MCP server)
 - Agent communications must be logged and monitored for security analysis
 - Agent memory and context must be isolated to prevent cross-agent data leakage
 - Synthetic data generation must use cryptographically secure random number generation
 - Configuration files must be validated to prevent injection attacks
 - Log files must be sanitized to prevent information leakage
 - Agent tool access must be restricted and monitored for security compliance
+- MCP server communications must be encrypted and authenticated for DoorDash integration
+- Live order mode must be clearly separated from testing mode to prevent accidental real orders
 
 ## Success Metrics
 
@@ -134,12 +140,14 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 2. **Demo Effectiveness:** Complete end-to-end attack scenarios in under 5 minutes
 3. **User Engagement:** Users complete at least 3 different attack scenarios per session
 4. **Stakeholder Satisfaction:** Positive feedback from 80% of demo participants
+5. **Live Order Success:** Successfully place real DoorDash orders via MCP server integration
 
 ### Secondary Metrics
 1. **System Reliability:** 99% uptime during demo sessions
 2. **Response Time:** All user interactions respond within 2 seconds
 3. **Log Completeness:** 100% of security events are properly logged
 4. **Configuration Flexibility:** Support for at least 10 different guard configuration combinations
+5. **MCP Integration Reliability:** 95% success rate for DoorDash API communications
 
 ### Business Impact Metrics
 1. **Client Engagement:** Increase in AI security solution inquiries by 25%
@@ -152,14 +160,16 @@ The SafeHive AI Security Sandbox is a CLI-based demonstration and testing platfo
 2. **Agent Framework Choice:** Use LangChain only for consistency and simplicity
 3. **Agent Memory Strategy:** How should agent memory be managed - shared, isolated, or hybrid approach?
 4. **Tool Integration:** What external tools should agents have access to (payment systems, inventory, etc.)?
-5. **Attack Pattern Library:** Should the system support user-defined attack patterns beyond the initial three OWASP patterns?
-6. **Agent Personality Configuration:** How should malicious vendor personalities be configured and varied?
-7. **Integration Roadmap:** What is the timeline for integrating with existing A10 security platforms?
-8. **Scaling Strategy:** How should the system handle more complex scenarios with multiple concurrent attacks?
-9. **Data Retention:** How long should incident logs and metrics be retained for analysis?
-10. **Internationalization:** Should the system support multiple languages for global demonstrations?
-11. **Performance Benchmarking:** What are the specific performance benchmarks for different hardware configurations?
-12. **Compliance Roadmap:** When should real PII handling capabilities be added for enterprise deployments?
+5. **Agent Personality Configuration:** How should malicious vendor personalities be configured and varied?
+6. **Integration Roadmap:** What is the timeline for integrating with existing A10 security platforms?
+7. **Scaling Strategy:** How should the system handle more complex scenarios with multiple concurrent attacks?
+8. **Data Retention:** How long should incident logs and metrics be retained for analysis?
+9. **Internationalization:** Should the system support multiple languages for global demonstrations?
+10. **Performance Benchmarking:** What are the specific performance benchmarks for different hardware configurations?
+11. **MCP Server Implementation:** Which existing MCP server resources should be used for DoorDash integration?
+12. **Live Order Safety:** What safeguards should be implemented to prevent accidental real orders during testing?
+13. **MCP Credential Management:** How should DoorDash API credentials be securely stored and managed?
+14. **Order Validation:** What validation should be performed before placing live orders via MCP server?
 
 ---
 

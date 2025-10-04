@@ -6,13 +6,9 @@ security testing scenarios with AI agents and security guards.
 """
 
 from .sandbox_manager import SandboxManager, SandboxSession, SandboxScenario
-from .scenarios import (
-    FoodOrderingScenario, PaymentProcessingScenario, 
-    APIIntegrationScenario, DataExtractionScenario
-)
+from .scenarios import FoodOrderingScenario
 
 __all__ = [
     "SandboxManager", "SandboxSession", "SandboxScenario",
-    "FoodOrderingScenario", "PaymentProcessingScenario", 
-    "APIIntegrationScenario", "DataExtractionScenario"
+    "FoodOrderingScenario"
 ]

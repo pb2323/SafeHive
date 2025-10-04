@@ -144,7 +144,7 @@ class TestLoggerUtilities:
         """Test guard action logging."""
         # Test blocking action (should log as warning)
         log_guard_action(
-            guard_name="honeypot",
+            guard_name="mcp_server",
             action="block",
             request_source="malicious_vendor",
             reason="SQL injection detected",
@@ -161,7 +161,7 @@ class TestLoggerUtilities:
         
         # Test decoy action (should log as warning)
         log_guard_action(
-            guard_name="honeypot",
+            guard_name="mcp_server",
             action="decoy",
             request_source="attacker",
             reason="Threshold exceeded",
