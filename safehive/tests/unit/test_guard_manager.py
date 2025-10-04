@@ -783,3 +783,72 @@ class TestGuardManagerIntegration:
                 
                 # Should process all guards (3 default + 3 custom = 6 total)
                 assert len(results) == 6
+    
+    def test_response_formatting_integration(self):
+        """Test response formatting integration with guard manager."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = GuardManager(temp_dir, enable_response_formatting=True)
+            manager.initialize()
+            
+            # Mock guard process methods to return structured results
+            for instance in manager.guards.values():
+                instance.instance.process = MagicMock(return_value={
+                    'action': 'allow',
+                    'confidence': 0.95,
+                    'processed_output': 'filtered_output',
+                    'threats_detected': [{'type': 'test_threat', 'severity': 'low'}],
+                    'actions_taken': ['test_action'],
+                    'recommendations': ['test_recommendation']
+                })
+            
+            # Test without formatting (backward compatible)
+            results_no_format = manager.process_through_guards(
+                "test_input", 
+                {"agent_id": "test_agent", "agent_type": "test", "session_id": "session_123"}
+            )
+            
+            # Should return original format
+            assert 'formatted_responses' not in results_no_format
+            assert len(results_no_format) == len(manager.guards)
+            
+            # Test with formatting
+            results_formatted = manager.process_through_guards(
+                "test_input", 
+                {"agent_id": "test_agent", "agent_type": "test", "session_id": "session_123"},
+                format_response=True
+            )
+            
+            # Should return formatted responses
+            assert 'formatted_responses' in results_formatted
+            assert 'raw_results' in results_formatted
+            assert len(results_formatted['formatted_responses']) == len(manager.guards)
+            assert len(results_formatted['raw_results']) == len(manager.guards)
+            
+            # Verify formatted response structure
+            formatted_response = results_formatted['formatted_responses'][0]
+            assert hasattr(formatted_response, 'response_id')
+            assert hasattr(formatted_response, 'guard_id')
+            assert hasattr(formatted_response, 'response_type')
+            assert hasattr(formatted_response, 'agent_context')
+            assert formatted_response.agent_context.agent_id == "test_agent"
+    
+    def test_response_formatting_disabled(self):
+        """Test that response formatting can be disabled."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manager = GuardManager(temp_dir, enable_response_formatting=False)
+            manager.initialize()
+            
+            # Mock guard process methods
+            for instance in manager.guards.values():
+                instance.instance.process = MagicMock(return_value="processed_result")
+            
+            # Test with formatting requested but disabled
+            results = manager.process_through_guards(
+                "test_input", 
+                {"agent_id": "test_agent"},
+                format_response=True
+            )
+            
+            # Should return original format since formatting is disabled
+            assert 'formatted_responses' not in results
+            assert len(results) == len(manager.guards)

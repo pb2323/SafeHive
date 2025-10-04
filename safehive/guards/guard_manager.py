@@ -19,6 +19,12 @@ from abc import ABC, abstractmethod
 from ..utils.logger import get_logger
 from ..utils.metrics import record_metric, MetricType
 
+# Import response formatter for structured response formatting and logging
+from .response_formatter import (
+    GuardResponseManager, ResponseFormat, ResponseType, AgentContext,
+    GuardResponse, LogLevel, ContextType
+)
+
 logger = get_logger(__name__)
 
 
@@ -200,7 +206,9 @@ class GuardRegistry:
 class GuardManager:
     """Main manager for all security guards."""
     
-    def __init__(self, storage_path: str = "/tmp/safehive_guards"):
+    def __init__(self, storage_path: str = "/tmp/safehive_guards", 
+                 enable_response_formatting: bool = True,
+                 response_format: ResponseFormat = ResponseFormat.JSON):
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
@@ -208,6 +216,13 @@ class GuardManager:
         self.registry = GuardRegistry()
         self.guards: Dict[str, GuardInstance] = {}
         self.configurations: Dict[str, GuardConfiguration] = {}
+        
+        # Response formatting and logging
+        self.enable_response_formatting = enable_response_formatting
+        self.response_format = response_format
+        self.response_manager: Optional[GuardResponseManager] = None
+        if enable_response_formatting:
+            self.response_manager = GuardResponseManager(str(self.storage_path / "responses"))
         
         # Runtime state
         self.initialized = False
@@ -548,13 +563,24 @@ class GuardManager:
             logger.error(f"Failed to disable guard {guard_id}: {e}")
             return False
     
-    def process_through_guards(self, input_data: Any, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Process input data through all enabled guards."""
+    def process_through_guards(self, input_data: Any, context: Optional[Dict[str, Any]] = None,
+                              format_response: bool = False) -> Dict[str, Any]:
+        """Process input data through all enabled guards.
+        
+        Args:
+            input_data: The input data to process
+            context: Optional context information
+            format_response: If True, return formatted guard responses (backward compatible: default False)
+        
+        Returns:
+            Dictionary of guard results (original format) or formatted responses if format_response=True
+        """
         if not self.initialized:
             logger.error("Guard Manager not initialized")
             return {'error': 'Guard Manager not initialized'}
         
         results = {}
+        formatted_responses = []
         
         # Sort guards by priority
         priority_order = {GuardPriority.LOW: 1, GuardPriority.MEDIUM: 2, 
@@ -586,12 +612,20 @@ class GuardManager:
                     (guard_instance.execution_count - 1) + processing_time
                 ) / guard_instance.execution_count
                 
+                # Store result in original format (backward compatible)
                 results[guard_instance.config.guard_id] = {
                     'result': result,
                     'processing_time_ms': processing_time,
                     'guard_type': guard_instance.config.guard_type.value,
                     'priority': guard_instance.config.priority.value
                 }
+                
+                # Create formatted response if enabled
+                if format_response and self.response_manager:
+                    formatted_response = self._create_formatted_response(
+                        guard_instance, input_data, result, processing_time, context
+                    )
+                    formatted_responses.append(formatted_response)
                 
                 self.total_executions += 1
                 self.successful_executions += 1
@@ -626,7 +660,111 @@ class GuardManager:
                     "status": "error"
                 })
         
+        # Return formatted responses if requested, otherwise return original format
+        if format_response and formatted_responses:
+            return {
+                'formatted_responses': formatted_responses,
+                'raw_results': results  # Include raw results for backward compatibility
+            }
+        
         return results
+    
+    def _create_formatted_response(self, guard_instance: GuardInstance, input_data: Any, 
+                                   result: Any, processing_time: float,
+                                   context: Optional[Dict[str, Any]]) -> GuardResponse:
+        """Create a formatted guard response."""
+        # Extract agent context from input context if available
+        agent_context = AgentContext(
+            agent_id=context.get('agent_id', 'unknown') if context else 'unknown',
+            agent_type=context.get('agent_type', 'unknown') if context else 'unknown',
+            session_id=context.get('session_id', 'unknown') if context else 'unknown',
+            user_id=context.get('user_id') if context else None,
+            task_id=context.get('task_id') if context else None,
+            conversation_id=context.get('conversation_id') if context else None,
+            metadata=context.get('metadata', {}) if context else {}
+        )
+        
+        # Determine response type based on result
+        response_type = self._determine_response_type(result)
+        
+        # Extract input and output strings
+        original_input = str(input_data) if isinstance(input_data, str) else json.dumps(input_data)
+        processed_output = str(result) if result else ""
+        
+        # Extract threats, actions, and recommendations if available
+        threats_detected = []
+        actions_taken = []
+        recommendations = []
+        
+        if isinstance(result, dict):
+            threats_detected = result.get('threats_detected', [])
+            actions_taken = result.get('actions_taken', [])
+            recommendations = result.get('recommendations', [])
+            processed_output = result.get('processed_output', result.get('sanitized_prompt', str(result)))
+        
+        # Create formatted response
+        guard_response = self.response_manager.create_response(
+            guard_id=guard_instance.config.guard_id,
+            guard_type=guard_instance.config.guard_type.value,
+            response_type=response_type,
+            original_input=original_input,
+            processed_output=processed_output,
+            confidence=result.get('confidence', 1.0) if isinstance(result, dict) else 1.0,
+            processing_time_ms=processing_time,
+            agent_context=agent_context,
+            threats_detected=threats_detected,
+            actions_taken=actions_taken,
+            recommendations=recommendations
+        )
+        
+        # Log the response
+        log_level = LogLevel.INFO if response_type in [ResponseType.ALLOW, ResponseType.AUDIT] else LogLevel.WARNING
+        context_type = ContextType.USER_INPUT if context and context.get('source') == 'user' else ContextType.SECURITY_SCAN
+        
+        self.response_manager.log_response(
+            response=guard_response,
+            log_level=log_level,
+            context_type=context_type,
+            message=f"Guard {guard_instance.config.guard_id} processed input",
+            tags={'guard', guard_instance.config.guard_type.value}
+        )
+        
+        return guard_response
+    
+    def _determine_response_type(self, result: Any) -> ResponseType:
+        """Determine response type from guard result."""
+        if isinstance(result, dict):
+            if 'action' in result:
+                action = result['action'].lower()
+                if 'allow' in action:
+                    return ResponseType.ALLOW
+                elif 'block' in action:
+                    return ResponseType.BLOCK
+                elif 'filter' in action:
+                    return ResponseType.FILTER
+                elif 'sanitize' in action:
+                    return ResponseType.SANITIZE
+                elif 'quarantine' in action:
+                    return ResponseType.QUARANTINE
+                elif 'escalate' in action:
+                    return ResponseType.ESCALATE
+                elif 'redirect' in action:
+                    return ResponseType.REDIRECT
+                elif 'warn' in action:
+                    return ResponseType.WARN
+                elif 'audit' in action:
+                    return ResponseType.AUDIT
+            
+            if 'action_taken' in result:
+                action_taken = result['action_taken']
+                if isinstance(action_taken, str):
+                    action_taken = action_taken.lower()
+                    for response_type in ResponseType:
+                        if response_type.value in action_taken:
+                            return response_type
+        
+        # Default to audit
+        return ResponseType.AUDIT
     
     def get_guard_status(self, guard_id: Optional[str] = None) -> Dict[str, Any]:
         """Get status of guards."""
