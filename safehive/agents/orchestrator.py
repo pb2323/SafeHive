@@ -40,6 +40,11 @@ except ImportError:
 from .base_agent import BaseAgent, AgentCapabilities
 from .configuration import AgentConfiguration, PersonalityProfile, PersonalityTrait
 from .user_twin import UserTwinAgent, PreferenceCategory
+from .order_models import Order, OrderItem, Vendor, OrderStatus, OrderType, PaymentStatus
+from .intelligent_order_manager import (
+    IntelligentOrderManager, OrderConstraint, OrderReasoning, 
+    ConstraintType, ReasoningType, OrderOptimizationResult
+)
 
 try:
     from .memory import SafeHiveMemoryManager, Conversation, AgentMessage
@@ -59,181 +64,6 @@ from ..utils.metrics import record_metric, increment_counter, MetricType
 logger = get_logger(__name__)
 
 
-class OrderStatus(Enum):
-    """Order status enumeration."""
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
-    PREPARING = "preparing"
-    READY = "ready"
-    OUT_FOR_DELIVERY = "out_for_delivery"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
-    FAILED = "failed"
-    COMPLETED = "completed"  # Added this status
-
-
-class OrderType(Enum):
-    """Order type enumeration."""
-    DINE_IN = "dine_in"
-    TAKEAWAY = "takeaway"
-    DELIVERY = "delivery"
-    PICKUP = "pickup"
-
-
-class PaymentStatus(Enum):
-    """Payment status enumeration."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    REFUNDED = "refunded"
-
-
-@dataclass
-class OrderItem:
-    """Individual order item."""
-    item_id: str
-    name: str
-    quantity: int
-    unit_price: float
-    total_price: float
-    special_instructions: str = ""
-    dietary_requirements: List[str] = field(default_factory=list)
-    allergens: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "item_id": self.item_id,
-            "name": self.name,
-            "quantity": self.quantity,
-            "unit_price": self.unit_price,
-            "total_price": self.total_price,
-            "special_instructions": self.special_instructions,
-            "dietary_requirements": self.dietary_requirements,
-            "allergens": self.allergens
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OrderItem":
-        """Create from dictionary."""
-        return cls(
-            item_id=data["item_id"],
-            name=data["name"],
-            quantity=data["quantity"],
-            unit_price=data["unit_price"],
-            total_price=data["total_price"],
-            special_instructions=data.get("special_instructions", ""),
-            dietary_requirements=data.get("dietary_requirements", []),
-            allergens=data.get("allergens", [])
-        )
-
-
-@dataclass
-class Vendor:
-    """Vendor information."""
-    vendor_id: str
-    name: str
-    cuisine_type: str
-    rating: float
-    delivery_time_minutes: int
-    minimum_order: float
-    delivery_fee: float
-    is_available: bool = True
-    specialties: List[str] = field(default_factory=list)
-    contact_info: Dict[str, str] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "vendor_id": self.vendor_id,
-            "name": self.name,
-            "cuisine_type": self.cuisine_type,
-            "rating": self.rating,
-            "delivery_time_minutes": self.delivery_time_minutes,
-            "minimum_order": self.minimum_order,
-            "delivery_fee": self.delivery_fee,
-            "is_available": self.is_available,
-            "specialties": self.specialties,
-            "contact_info": self.contact_info
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Vendor":
-        """Create from dictionary."""
-        return cls(
-            vendor_id=data["vendor_id"],
-            name=data["name"],
-            cuisine_type=data["cuisine_type"],
-            rating=data["rating"],
-            delivery_time_minutes=data["delivery_time_minutes"],
-            minimum_order=data["minimum_order"],
-            delivery_fee=data["delivery_fee"],
-            is_available=data.get("is_available", True),
-            specialties=data.get("specialties", []),
-            contact_info=data.get("contact_info", {})
-        )
-
-
-@dataclass
-class Order:
-    """Complete order information."""
-    order_id: str
-    user_id: str
-    vendor: Vendor
-    items: List[OrderItem]
-    order_type: OrderType
-    status: OrderStatus
-    payment_status: PaymentStatus
-    total_amount: float
-    delivery_address: Optional[str] = None
-    special_instructions: str = ""
-    estimated_delivery_time: Optional[datetime] = None
-    actual_delivery_time: Optional[datetime] = None
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "order_id": self.order_id,
-            "user_id": self.user_id,
-            "vendor": self.vendor.to_dict(),
-            "items": [item.to_dict() for item in self.items],
-            "order_type": self.order_type.value,
-            "status": self.status.value,
-            "payment_status": self.payment_status.value,
-            "total_amount": self.total_amount,
-            "delivery_address": self.delivery_address,
-            "special_instructions": self.special_instructions,
-            "estimated_delivery_time": self.estimated_delivery_time.isoformat() if self.estimated_delivery_time else None,
-            "actual_delivery_time": self.actual_delivery_time.isoformat() if self.actual_delivery_time else None,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-            "metadata": self.metadata
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Order":
-        """Create from dictionary."""
-        return cls(
-            order_id=data["order_id"],
-            user_id=data["user_id"],
-            vendor=Vendor.from_dict(data["vendor"]),
-            items=[OrderItem.from_dict(item) for item in data["items"]],
-            order_type=OrderType(data["order_type"]),
-            status=OrderStatus(data["status"]),
-            payment_status=PaymentStatus(data["payment_status"]),
-            total_amount=data["total_amount"],
-            delivery_address=data.get("delivery_address"),
-            special_instructions=data.get("special_instructions", ""),
-            estimated_delivery_time=datetime.fromisoformat(data["estimated_delivery_time"]) if data.get("estimated_delivery_time") else None,
-            actual_delivery_time=datetime.fromisoformat(data["actual_delivery_time"]) if data.get("actual_delivery_time") else None,
-            created_at=datetime.fromisoformat(data["created_at"]),
-            updated_at=datetime.fromisoformat(data["updated_at"]),
-            metadata=data.get("metadata", {})
-        )
 
 
 class OrderManager:
@@ -546,6 +376,7 @@ class OrchestratorAgent(BaseAgent):
         # Initialize components
         self.order_manager = OrderManager()
         self.vendor_manager = VendorManager()
+        self.intelligent_order_manager = IntelligentOrderManager()
         self.user_twin_agent: Optional[UserTwinAgent] = None
         
         # Initialize LangChain components
@@ -707,7 +538,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
     async def create_order(self, user_id: str, vendor_id: str, items: List[Dict[str, Any]], 
                           order_type: OrderType = OrderType.DELIVERY,
                           delivery_address: Optional[str] = None,
-                          special_instructions: str = "") -> Optional[Order]:
+                          special_instructions: str = "",
+                          enable_intelligent_optimization: bool = True) -> Optional[Order]:
         """Create a new order."""
         try:
             # Get vendor information
@@ -758,6 +590,22 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
                 estimated_delivery_time=datetime.now() + timedelta(minutes=vendor.delivery_time_minutes)
             )
             
+            # Apply intelligent optimization if enabled
+            if enable_intelligent_optimization:
+                optimization_result = await self.intelligent_order_manager.optimize_order(
+                    order, self.user_twin_agent
+                )
+                if optimization_result.optimized_order:
+                    order = optimization_result.optimized_order
+                    logger.info(f"Order optimized with score: {optimization_result.optimization_score}")
+                    
+                    # Record optimization metrics
+                    record_metric("orchestrator.order.optimized", 1, MetricType.COUNTER, {
+                        "order_id": order.order_id,
+                        "optimization_score": optimization_result.optimization_score,
+                        "improvements_count": len(optimization_result.improvements)
+                    })
+            
             # Save order
             if self.order_manager.create_order(order):
                 self.current_orders[order.order_id] = order
@@ -766,7 +614,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
                 record_metric("orchestrator.order.created", 1, MetricType.COUNTER, {
                     "vendor_id": vendor_id,
                     "order_type": order_type.value,
-                    "total_amount": total_amount
+                    "total_amount": total_amount,
+                    "optimized": enable_intelligent_optimization
                 })
                 
                 logger.info(f"Created order: {order.order_id}")
@@ -900,6 +749,59 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "available_vendors": len([v for v in vendors if v.is_available])
         }
     
+    async def optimize_existing_order(self, order_id: str, constraints: Optional[List[OrderConstraint]] = None) -> Optional[OrderOptimizationResult]:
+        """Optimize an existing order using intelligent reasoning."""
+        order = self.order_manager.get_order(order_id)
+        if not order:
+            logger.error(f"Order not found: {order_id}")
+            return None
+        
+        logger.info(f"Optimizing existing order: {order_id}")
+        
+        # Perform optimization
+        optimization_result = await self.intelligent_order_manager.optimize_order(
+            order, self.user_twin_agent, constraints
+        )
+        
+        # Update the order if optimization was successful
+        if optimization_result.optimized_order and optimization_result.optimization_score > 0.7:
+            # Update the order in the order manager
+            self.order_manager._orders[order_id] = optimization_result.optimized_order
+            self.order_manager._save_orders()
+            
+            # Update current orders cache
+            if order_id in self.current_orders:
+                self.current_orders[order_id] = optimization_result.optimized_order
+            
+            logger.info(f"Order {order_id} optimized successfully")
+        
+        return optimization_result
+    
+    async def analyze_order_conflicts(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """Analyze potential conflicts in an order."""
+        order = self.order_manager.get_order(order_id)
+        if not order:
+            logger.error(f"Order not found: {order_id}")
+            return None
+        
+        logger.info(f"Analyzing conflicts for order: {order_id}")
+        
+        # Perform conflict analysis
+        conflict_analysis = await self.intelligent_order_manager.analyze_order_conflicts(
+            order, self.user_twin_agent
+        )
+        
+        return conflict_analysis
+    
+    def get_optimization_statistics(self) -> Dict[str, Any]:
+        """Get intelligent order management statistics."""
+        return self.intelligent_order_manager.get_optimization_statistics()
+    
+    def add_order_constraint(self, constraint: OrderConstraint) -> None:
+        """Add a constraint to the intelligent order management system."""
+        self.intelligent_order_manager.add_constraint(constraint)
+        logger.info(f"Added constraint: {constraint.constraint_type.value}")
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get agent metrics."""
         base_metrics = super().get_metrics()
@@ -908,7 +810,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "total_orders": len(self.order_manager._orders),
             "active_orders": len(self.current_orders),
             "total_vendors": len(self.vendor_manager._vendors),
-            "available_vendors": len(self.vendor_manager.get_all_vendors())
+            "available_vendors": len(self.vendor_manager.get_all_vendors()),
+            "intelligent_optimizations": self.intelligent_order_manager.get_optimization_statistics()
         }
         
         return {**base_metrics, **orchestrator_metrics}
