@@ -1300,24 +1300,50 @@ Based on the user's request and your preferences, select the most appropriate re
         # Get the actual menu items for this restaurant
         menu_items = self._get_menu_items(restaurant_name)
         
-        # Try to find exact matches first
+        # Try to find exact matches first - select only the BEST match
+        best_match = None
+        best_score = 0
+        
         for item in menu_items:
             item_name_lower = item['name'].lower()
             item_description_lower = item.get('description', '').lower()
+            score = 0
             
             # Check if any keyword from user input matches item name or description
-            if any(keyword in item_name_lower for keyword in user_input_lower.split()):
-                selected_items.append(item['name'])
-            # Also check description for items like "California Roll" which contains avocado
-            elif any(keyword in item_description_lower for keyword in user_input_lower.split()):
-                selected_items.append(item['name'])
+            for keyword in user_input_lower.split():
+                if keyword in item_name_lower:
+                    score += 2  # Name match gets higher score
+                if keyword in item_description_lower:
+                    score += 1  # Description match gets lower score
+            
+            # Keep track of the best match
+            if score > best_score:
+                best_score = score
+                best_match = item['name']
         
-        # If no exact matches, try partial matches
+        # Only add the best match if we found one
+        if best_match and best_score > 0:
+            selected_items.append(best_match)
+        
+        # If no exact matches, try partial matches - select only the BEST match
         if not selected_items:
+            best_partial_match = None
+            best_partial_score = 0
+            
             for item in menu_items:
                 item_name_lower = item['name'].lower()
-                if any(word in item_name_lower for word in user_input_lower.split() if len(word) > 3):
-                    selected_items.append(item['name'])
+                score = 0
+                
+                for word in user_input_lower.split():
+                    if len(word) > 3 and word in item_name_lower:
+                        score += 1
+                
+                if score > best_partial_score:
+                    best_partial_score = score
+                    best_partial_match = item['name']
+            
+            if best_partial_match and best_partial_score > 0:
+                selected_items.append(best_partial_match)
         
         # If still no matches, use intelligent fallback based on restaurant type
         if not selected_items:
