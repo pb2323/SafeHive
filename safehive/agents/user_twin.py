@@ -769,7 +769,7 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
     async def process_message(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Process a message using LangChain agent."""
         try:
-            self.update_state(AgentState.PROCESSING)
+            self._status = AgentState.PROCESSING
             
             # Add context to message if provided
             if context:
@@ -798,7 +798,7 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
                 )
                 await self.memory_manager.add_conversation(conversation)
             
-            self.update_state(AgentState.IDLE)
+            self._status = AgentState.IDLE
             
             logger.info(f"Processed message for {self.agent_id}")
             record_metric("user_twin.message.processed", 1, MetricType.COUNTER)
@@ -807,7 +807,7 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
             
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
-            self.update_state(AgentState.ERROR)
+            self._status = AgentState.ERROR
             return f"I encountered an error while processing your message: {str(e)}"
     
     def get_metrics(self) -> Dict[str, Any]:
@@ -831,7 +831,7 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
         self.preference_manager._save_preferences()
         
         # Update state
-        self.update_state(AgentState.STOPPED)
+        self._status = AgentState.STOPPED
         
         await super().shutdown()
 

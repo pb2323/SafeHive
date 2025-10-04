@@ -146,11 +146,7 @@ class BaseAgent(ABC):
             self._ai_client = get_ai_client()
             
             # Initialize memory manager
-            self._memory_manager = get_memory_manager(
-                agent_id=self.agent_id,
-                memory_type=self.config.memory_type,
-                max_size=self.config.max_memory_size
-            )
+            self._memory_manager = get_memory_manager(agent_id=self.agent_id)
             
             # Initialize LangChain agent
             self._initialize_langchain_agent()
