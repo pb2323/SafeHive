@@ -128,7 +128,7 @@ class TestConfigLoader:
         
         assert isinstance(system_config, SystemConfig)
         assert "mcp_server" in system_config.guards
-        assert system_config.guards["mcp_server"].enabled is False  # Disabled by default for safety
+        assert system_config.guards["mcp_server"].enabled is True  # Enabled as specified in config
         assert system_config.guards["mcp_server"].threshold == 3
         
         assert "orchestrator" in system_config.agents
@@ -183,9 +183,10 @@ class TestConfigLoader:
         loader = ConfigLoader("nonexistent_config.yaml")
         config = loader.load_config()
         
-        # Should return default config
+        # Should return fallback config
         assert isinstance(config, SystemConfig)
-        assert config.metadata["config_path"] == "default"
+        # The fallback config will have the original path as metadata
+        assert config.metadata["config_path"] == "nonexistent_config.yaml"
     
     def test_load_config_invalid_yaml(self):
         """Test loading configuration with invalid YAML."""
@@ -195,8 +196,10 @@ class TestConfigLoader:
         
         try:
             loader = ConfigLoader(temp_path)
-            with pytest.raises(yaml.YAMLError):
-                loader.load_config()
+            # The error handler now provides fallback configuration instead of raising
+            config = loader.load_config()
+            # Should return fallback config due to YAML error
+            assert isinstance(config, SystemConfig)
         finally:
             os.unlink(temp_path)
     

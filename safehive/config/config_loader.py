@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from ..utils.logger import get_logger
+# Note: config_validator and config_error_handler imports are moved to methods to avoid circular imports
 
 logger = get_logger(__name__)
 
@@ -212,22 +213,32 @@ class ConfigLoader:
             }
         }
     
-    def load_config(self) -> SystemConfig:
+    def load_config(self, validate: bool = True) -> SystemConfig:
         """
-        Load and validate configuration from YAML file.
+        Load and validate configuration from YAML file with enhanced error handling.
         
+        Args:
+            validate: Whether to perform comprehensive validation
+            
         Returns:
             SystemConfig object with loaded configuration
             
         Raises:
-            FileNotFoundError: If configuration file doesn't exist
-            yaml.YAMLError: If YAML parsing fails
-            ValueError: If configuration validation fails
+            FileNotFoundError: If configuration file doesn't exist and no fallback available
+            yaml.YAMLError: If YAML parsing fails and no fallback available
+            ValueError: If configuration validation fails and no fallback available
         """
         logger.info(f"Loading configuration from: {self.config_path}")
         
         if not os.path.exists(self.config_path):
             logger.warning(f"Configuration file not found: {self.config_path}")
+            # Try to handle with error handler
+            from .config_error_handler import handle_configuration_error
+            fallback_config, errors = handle_configuration_error(self.config_path, FileNotFoundError())
+            if fallback_config:
+                logger.info("Using fallback configuration due to file not found")
+                self.config = self._convert_to_system_config(fallback_config)
+                return self.config
             logger.info("Using default configuration")
             self.config = self._create_default_config()
             return self.config
@@ -241,7 +252,29 @@ class ConfigLoader:
                 self.config = self._create_default_config()
                 return self.config
             
-            # Validate configuration
+            # Enhanced validation if requested
+            if validate:
+                from .config_validator import validate_config_data
+                validation_result = validate_config_data(config_data)
+                if not validation_result.is_valid:
+                    logger.warning(f"Configuration validation failed: {len(validation_result.errors)} errors, {len(validation_result.warnings)} warnings")
+                    
+                    # Log validation issues
+                    for issue in validation_result.errors:
+                        logger.error(f"Config error: {issue}")
+                    for issue in validation_result.warnings:
+                        logger.warning(f"Config warning: {issue}")
+                    
+                    # If too many errors, use fallback
+                    if len(validation_result.errors) > 5:
+                        logger.error("Too many validation errors, using fallback configuration")
+                        from .config_error_handler import handle_configuration_error
+                        fallback_config, errors = handle_configuration_error(self.config_path, ValueError("Too many validation errors"))
+                        if fallback_config:
+                            self.config = self._convert_to_system_config(fallback_config)
+                            return self.config
+            
+            # Legacy validation
             self._validate_config(config_data)
             
             # Convert to SystemConfig object
@@ -252,9 +285,23 @@ class ConfigLoader:
             
         except yaml.YAMLError as e:
             logger.error(f"YAML parsing error: {e}")
+            # Try to handle with error handler
+            from .config_error_handler import handle_configuration_error
+            fallback_config, errors = handle_configuration_error(self.config_path, e)
+            if fallback_config:
+                logger.info("Using fallback configuration due to YAML error")
+                self.config = self._convert_to_system_config(fallback_config)
+                return self.config
             raise
         except Exception as e:
             logger.error(f"Configuration loading error: {e}")
+            # Try to handle with error handler
+            from .config_error_handler import handle_configuration_error
+            fallback_config, errors = handle_configuration_error(self.config_path, e)
+            if fallback_config:
+                logger.info("Using fallback configuration due to error")
+                self.config = self._convert_to_system_config(fallback_config)
+                return self.config
             raise
     
     def _validate_config(self, config_data: Dict[str, Any]) -> None:

@@ -56,9 +56,9 @@
   - [x] 2.3 Add `--metrics` CLI flag to display summary statistics
   - [x] 2.4 Create sandbox launch command with scenario selection
   - [x] 2.5 Implement human-in-the-loop controls (approve/redact/quarantine/ignore)
-  - [ ] 2.6 Add real-time status updates and progress indicators during simulations
-  - [ ] 2.7 Create help system and command documentation
-  - [ ] 2.8 Implement configuration validation and error handling
+  - [x] 2.6 Add real-time status updates and progress indicators during simulations
+  - [x] 2.7 Create help system and command documentation
+  - [x] 2.8 Implement configuration validation and error handling
 
 - [ ] 3.0 AI Agent Framework and Base Implementation
   - [ ] 3.1 Create `agents/base_agent.py` with LangChain agent base class and common functionality

@@ -8,6 +8,7 @@ the AI security sandbox environment.
 """
 
 import typer
+from typer import Context
 import asyncio
 import sys
 import time
@@ -34,22 +35,80 @@ from safehive.sandbox.sandbox_manager import get_sandbox_manager, SandboxSession
 from safehive.utils.human_controls import get_human_control_manager
 from safehive.ui.human_controls_ui import get_human_controls_ui
 from safehive.models.human_controls import InterventionType
+from safehive.ui.progress_display import (
+    get_progress_display, start_progress_display, stop_progress_display,
+    add_progress_event, update_session_progress, remove_session_progress,
+    ProgressEventType
+)
+from safehive.ui.help_system import show_help, interactive_help, get_command_suggestions
 
 # Create the main typer app
 app = typer.Typer(
     name="safehive",
-    help="SafeHive AI Security Sandbox - Interactive AI Security Testing Platform",
-    add_completion=False,
-    rich_markup_mode="rich"
+    help="🛡️ SafeHive AI Security Sandbox - Advanced AI Security Testing Platform\n\n"
+         "Test AI agent security, detect vulnerabilities, and validate guard systems.\n"
+         "Features include real-time monitoring, human-in-the-loop controls, and comprehensive metrics.",
+    add_completion=True,
+    rich_markup_mode="rich",
+    no_args_is_help=True
 )
 
 # Create sub-apps for different modules
-sandbox_app = typer.Typer(name="sandbox", help="Sandbox operations")
-config_app = typer.Typer(name="config", help="Configuration management")
-agent_app = typer.Typer(name="agent", help="Agent management")
-guard_app = typer.Typer(name="guard", help="Security guard operations")
-metrics_app = typer.Typer(name="metrics", help="Metrics and monitoring")
-human_app = typer.Typer(name="human", help="Human-in-the-loop controls")
+sandbox_app = typer.Typer(
+    name="sandbox", 
+    help="🎯 Sandbox Operations - Manage security testing sessions\n\n"
+         "Start, stop, and monitor sandbox sessions with various security scenarios.\n"
+         "Includes interactive mode, background execution, and real-time progress tracking.",
+    rich_markup_mode="rich"
+)
+
+config_app = typer.Typer(
+    name="config", 
+    help="⚙️ Configuration Management - View and validate system settings\n\n"
+         "Display current configuration, validate settings, and manage system parameters.\n"
+         "Supports custom configuration files and section-specific viewing.",
+    rich_markup_mode="rich"
+)
+
+agent_app = typer.Typer(
+    name="agent", 
+    help="🤖 Agent Management - Control AI agents and their behavior\n\n"
+         "Manage orchestrator, user twin, and vendor agents.\n"
+         "Configure agent personalities, memory, and communication protocols.",
+    rich_markup_mode="rich"
+)
+
+guard_app = typer.Typer(
+    name="guard", 
+    help="🛡️ Security Guard Operations - Manage security guards\n\n"
+         "Enable, disable, and configure security guards including Privacy Sentry,\n"
+         "Task Navigator, and Prompt Sanitizer.",
+    rich_markup_mode="rich"
+)
+
+metrics_app = typer.Typer(
+    name="metrics", 
+    help="📊 Metrics and Monitoring - Track system performance\n\n"
+         "View real-time metrics, export data, and launch monitoring dashboards.\n"
+         "Includes system statistics, security events, and performance indicators.",
+    rich_markup_mode="rich"
+)
+
+human_app = typer.Typer(
+    name="human", 
+    help="🎮 Human-in-the-Loop Controls - Manual intervention management\n\n"
+         "Handle intervention requests, approve/redact/quarantine actions,\n"
+         "and monitor human decision-making workflows.",
+    rich_markup_mode="rich"
+)
+
+progress_app = typer.Typer(
+    name="progress", 
+    help="📈 Real-time Progress Monitoring - Live session tracking\n\n"
+         "Monitor active sessions with live progress indicators, agent status,\n"
+         "and guard activities. Includes demonstration mode for learning.",
+    rich_markup_mode="rich"
+)
 
 # Add sub-apps to main app
 app.add_typer(sandbox_app, name="sandbox")
@@ -58,6 +117,7 @@ app.add_typer(agent_app, name="agent")
 app.add_typer(guard_app, name="guard")
 app.add_typer(metrics_app, name="metrics")
 app.add_typer(human_app, name="human")
+app.add_typer(progress_app, name="progress")
 
 console = Console()
 logger = get_logger(__name__)
@@ -160,11 +220,40 @@ def status(
 
 @app.command()
 def init(
-    config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to configuration file"),
-    log_level: str = typer.Option("INFO", "--log-level", "-l", help="Logging level"),
-    interactive: bool = typer.Option(True, "--interactive/--no-interactive", help="Interactive mode")
+    config_file: Optional[str] = typer.Option(
+        None, 
+        "--config", "-c", 
+        help="📄 Path to custom configuration file\n"
+             "If not provided, uses default configuration from config/default_config.yaml"
+    ),
+    log_level: str = typer.Option(
+        "INFO", 
+        "--log-level", "-l", 
+        help="📝 Logging level (DEBUG, INFO, WARNING, ERROR)\n"
+             "Higher levels show fewer messages but include more serious issues"
+    ),
+    interactive: bool = typer.Option(
+        True, 
+        "--interactive/--no-interactive", 
+        help="🎮 Interactive mode - provides guided setup process\n"
+             "Use --no-interactive for automated/silent initialization"
+    )
 ):
-    """Initialize the SafeHive system."""
+    """🚀 Initialize the SafeHive AI Security Sandbox system.
+    
+    Sets up the complete SafeHive environment including:
+    • Ollama connection verification and model downloads
+    • Configuration file creation and validation
+    • Logging directory setup and permissions
+    • System requirements verification
+    
+    This command must be run before using any other SafeHive features.
+    
+    Examples:
+        safehive init
+        safehive init --log-level DEBUG
+        safehive init --config custom_config.yaml --no-interactive
+    """
     console.print("🚀 Initializing SafeHive AI Security Sandbox...", style="bold blue")
 
     # Record initialization start
@@ -218,12 +307,42 @@ def menu():
 # Sandbox Commands
 @sandbox_app.command("start")
 def sandbox_start(
-    scenario: str = typer.Option("food-ordering", "--scenario", "-s", help="Test scenario to run"),
-    duration: int = typer.Option(None, "--duration", "-d", help="Session duration in seconds"),
-    interactive: bool = typer.Option(None, "--interactive/--no-interactive", help="Interactive mode"),
-    background: bool = typer.Option(False, "--background", "-b", help="Run in background")
+    scenario: str = typer.Option(
+        "food-ordering", 
+        "--scenario", "-s", 
+        help="🎯 Test scenario to run (default: food-ordering)\n"
+             "Available scenarios:\n"
+             "  • food-ordering: Food ordering workflow with malicious vendors"
+    ),
+    duration: int = typer.Option(
+        None, 
+        "--duration", "-d", 
+        help="⏱️ Session duration in seconds (default: 300)\n"
+             "Recommended: 60-600 seconds for most scenarios"
+    ),
+    interactive: bool = typer.Option(
+        None, 
+        "--interactive/--no-interactive", 
+        help="🎮 Interactive mode - allows real-time user input during simulation\n"
+             "Use --interactive for hands-on testing, --no-interactive for automated runs"
+    ),
+    background: bool = typer.Option(
+        False, 
+        "--background", "-b", 
+        help="🔄 Run in background mode - non-blocking execution\n"
+             "Session continues running while terminal is available for other commands"
+    )
 ):
-    """Start a security sandbox session."""
+    """🚀 Start a security sandbox session with scenario execution.
+    
+    Launches a new sandbox session with the specified scenario, allowing you to test
+    AI agent security, monitor guard behavior, and validate system responses.
+    
+    Examples:
+        safehive sandbox start --scenario food-ordering
+        safehive sandbox start --scenario food-ordering --interactive --duration 600
+        safehive sandbox start --scenario food-ordering --background
+    """
     console.print(f"🎯 Starting sandbox session: {scenario}", style="bold blue")
 
     if not check_system_requirements():
@@ -262,25 +381,36 @@ def sandbox_start(
         # Record metrics
         record_metric("cli.sandbox_start", 1, MetricType.COUNTER, {"scenario": scenario})
         
+        # Add progress tracking
+        add_progress_event(ProgressEventType.SESSION_START, f"Starting {scenario} scenario", session.session_id)
+        
         if background:
             # Start session in background
             console.print("🚀 Starting session in background...", style="blue")
             asyncio.run(sandbox_manager.start_session(session.session_id))
             console.print(f"✅ Session {session.session_id} started in background", style="green")
+            console.print("💡 Use 'safehive progress status' to monitor progress", style="dim")
         else:
             # Start session and wait
             console.print("🚀 Starting session...", style="blue")
             asyncio.run(sandbox_manager.start_session(session.session_id))
             
+            # Update progress
+            session = sandbox_manager.get_session(session.session_id)
+            if session:
+                update_session_progress(session)
+            
             # Show session status
             console.print("\n📊 Session Status:", style="bold blue")
-            session = sandbox_manager.get_session(session.session_id)
             if session:
                 console.print(f"  Status: {session.status.value}")
                 console.print(f"  Phase: {session.phase.value}")
                 console.print(f"  Duration: {session.duration}s")
                 console.print(f"  Events: {len(session.events)}")
                 console.print(f"  Security Events: {len([e for e in session.events if 'security' in e.get('type', '')])}")
+                
+                # Add completion event
+                add_progress_event(ProgressEventType.SESSION_COMPLETE, f"Session {scenario} completed", session.session_id)
     
     except Exception as e:
         console.print(f"❌ Error starting sandbox session: {e}", style="red")
@@ -622,17 +752,83 @@ def config_show(
 
 @config_app.command("validate")
 def config_validate(
-    config_file: str = typer.Option("safehive/config/default_config.yaml", "--file", "-f", help="Configuration file to validate")
+    config_file: str = typer.Option("safehive/config/default_config.yaml", "--file", "-f", help="Configuration file to validate"),
+    fix: bool = typer.Option(False, "--fix", help="Automatically fix configuration issues"),
+    detailed: bool = typer.Option(False, "--detailed", help="Show detailed validation results")
 ):
-    """Validate configuration file."""
+    """🔍 Validate configuration file syntax and settings with enhanced validation.
+    
+    Performs comprehensive validation including schema checking, value validation,
+    and cross-section dependency verification.
+    
+    Examples:
+        safehive config validate
+        safehive config validate --file custom_config.yaml --detailed
+        safehive config validate --fix
+    """
     console.print(f"🔍 Validating configuration file: {config_file}", style="blue")
     
     try:
-        config_loader = ConfigLoader()
-        config_loader.load_config()
-        console.print("✅ Configuration is valid", style="green")
+        from safehive.config.config_validator import validate_config_file
+        from safehive.config.config_tools import get_config_tools
+        
+        # Perform comprehensive validation
+        validation_result = validate_config_file(config_file)
+        
+        if validation_result.is_valid:
+            console.print("✅ Configuration is valid", style="green")
+            
+            if validation_result.warnings:
+                console.print(f"⚠️ Configuration has {len(validation_result.warnings)} warnings", style="yellow")
+                if detailed:
+                    for warning in validation_result.warnings:
+                        console.print(f"  • {warning}")
+        else:
+            console.print(f"❌ Configuration validation failed", style="red")
+            
+            if detailed:
+                # Show detailed results
+                summary = validation_result.get_summary()
+                console.print(f"\n📊 Validation Summary:")
+                console.print(f"  • Total Issues: {summary['total_issues']}")
+                console.print(f"  • Errors: {summary['errors']}")
+                console.print(f"  • Warnings: {summary['warnings']}")
+                
+                auto_fixes = len([i for i in validation_result.issues if i.fix_available])
+                console.print(f"  • Auto-fixes Available: {auto_fixes}")
+                
+                if validation_result.errors:
+                    console.print(f"\n❌ Errors:")
+                    for error in validation_result.errors:
+                        console.print(f"  • {error}")
+                
+                if validation_result.warnings:
+                    console.print(f"\n⚠️ Warnings:")
+                    for warning in validation_result.warnings:
+                        console.print(f"  • {warning}")
+            
+            if fix:
+                console.print(f"\n🔧 Attempting to fix configuration...")
+                tools = get_config_tools()
+                success = tools.fix_configuration(config_file, backup=True)
+                if success:
+                    console.print("✅ Configuration fixed successfully", style="green")
+                else:
+                    console.print("⚠️ Some issues could not be automatically fixed", style="yellow")
+                    raise typer.Exit(1)
+            else:
+                auto_fixes = len([i for i in validation_result.issues if i.fix_available])
+                if auto_fixes > 0:
+                    console.print(f"\n💡 Use --fix to automatically fix {auto_fixes} issues")
+                raise typer.Exit(1)
+    
+    except FileNotFoundError:
+        console.print(f"❌ Configuration file not found: {config_file}", style="red")
+        console.print(f"💡 Use 'safehive init' to create default configuration")
+        raise typer.Exit(1)
     except Exception as e:
         console.print(f"❌ Configuration validation failed: {e}", style="red")
+        logger.error(f"Config validation error: {e}")
         raise typer.Exit(1)
 
 
@@ -821,6 +1017,135 @@ def metrics_clear():
             logger.error(f"Metrics clear error: {e}")
     else:
         console.print("Metrics clear cancelled", style="yellow")
+
+
+# Progress Commands
+@progress_app.command("start")
+def progress_start():
+    """Start real-time progress monitoring."""
+    console.print("🚀 Starting real-time progress monitoring...", style="bold blue")
+    
+    try:
+        display = start_progress_display()
+        
+        # Add some initial events
+        add_progress_event(ProgressEventType.SESSION_START, "Progress monitoring started")
+        
+        console.print("✅ Progress monitoring started. Press Ctrl+C to stop.", style="green")
+        console.print("Use 'safehive progress stop' to stop monitoring.", style="dim")
+        
+        # Keep the display running
+        try:
+            while True:
+                time.sleep(1)
+                display.update_display()
+        except KeyboardInterrupt:
+            console.print("\n🛑 Stopping progress monitoring...", style="yellow")
+            stop_progress_display()
+            console.print("✅ Progress monitoring stopped", style="green")
+            
+    except Exception as e:
+        console.print(f"❌ Error starting progress monitoring: {e}", style="red")
+        logger.error(f"Progress start error: {e}")
+        raise typer.Exit(1)
+
+
+@progress_app.command("stop")
+def progress_stop():
+    """Stop real-time progress monitoring."""
+    console.print("🛑 Stopping progress monitoring...", style="yellow")
+    
+    try:
+        stop_progress_display()
+        console.print("✅ Progress monitoring stopped", style="green")
+    except Exception as e:
+        console.print(f"❌ Error stopping progress monitoring: {e}", style="red")
+        logger.error(f"Progress stop error: {e}")
+
+
+@progress_app.command("status")
+def progress_status():
+    """Show current progress status."""
+    console.print("📊 Current Progress Status", style="bold blue")
+    
+    try:
+        display = get_progress_display()
+        
+        # Show session information
+        if display._session_tasks:
+            console.print("\n🔄 Active Sessions:", style="green")
+            for session_id, task_info in display._session_tasks.items():
+                session = task_info.get("session")
+                if session:
+                    console.print(f"  • {session_id[:8]}... - {session.status.value} ({session.phase.value})")
+        else:
+            console.print("\n💤 No active sessions", style="dim")
+        
+        # Show recent events
+        if display.events:
+            console.print(f"\n📝 Recent Events ({len(display.events)} total):", style="green")
+            recent_events = display.events[-5:]
+            for event in recent_events:
+                time_str = event.timestamp.strftime("%H:%M:%S")
+                console.print(f"  • [{time_str}] {event.event_type.value}: {event.message}")
+        else:
+            console.print("\n📝 No recent events", style="dim")
+            
+    except Exception as e:
+        console.print(f"❌ Error getting progress status: {e}", style="red")
+        logger.error(f"Progress status error: {e}")
+
+
+@progress_app.command("demo")
+def progress_demo():
+    """Demonstrate progress monitoring with a simulated session."""
+    console.print("🎬 Running Progress Demo...", style="bold blue")
+    
+    try:
+        display = start_progress_display()
+        
+        # Simulate a session
+        console.print("Creating demo session...", style="dim")
+        add_progress_event(ProgressEventType.SESSION_START, "Demo session created")
+        
+        # Simulate session phases
+        phases = [
+            ("Initialization", "Setting up demo environment"),
+            ("Agent Setup", "Initializing demo agents"),
+            ("Guard Activation", "Activating security guards"),
+            ("Scenario Execution", "Running demo scenario"),
+            ("Monitoring", "Monitoring demo session"),
+            ("Cleanup", "Cleaning up demo session")
+        ]
+        
+        for i, (phase_name, description) in enumerate(phases):
+            time.sleep(2)
+            add_progress_event(ProgressEventType.SESSION_UPDATE, description)
+            display.update_display()
+            
+            console.print(f"  ✓ {phase_name}", style="green")
+        
+        # Complete the demo
+        time.sleep(1)
+        add_progress_event(ProgressEventType.SESSION_COMPLETE, "Demo session completed successfully")
+        
+        console.print("\n✅ Progress demo completed!", style="green")
+        console.print("Press Ctrl+C to stop monitoring or use 'safehive progress stop'", style="dim")
+        
+        # Keep running until interrupted
+        try:
+            while True:
+                time.sleep(1)
+                display.update_display()
+        except KeyboardInterrupt:
+            console.print("\n🛑 Stopping demo...", style="yellow")
+            stop_progress_display()
+            console.print("✅ Demo stopped", style="green")
+            
+    except Exception as e:
+        console.print(f"❌ Error running progress demo: {e}", style="red")
+        logger.error(f"Progress demo error: {e}")
+        raise typer.Exit(1)
 
 
 # Main entry point
@@ -1018,6 +1343,55 @@ def human_ignore(
     except Exception as e:
         console.print(f"❌ Error ignoring request: {e}", style="red")
         logger.error(f"Human controls ignore error: {e}")
+        raise typer.Exit(1)
+
+
+# Help Commands
+@app.command("help", context_settings={"allow_extra_args": True})
+def help_command(
+    ctx: typer.Context,
+    topic: Optional[str] = typer.Option(None, "--topic", "-t", help="Topic to get help for"),
+    interactive: bool = typer.Option(False, "--interactive", "-i", help="Launch interactive help")
+):
+    """Show help information for commands and topics.
+    
+    Examples:
+        safehive help
+        safehive help sandbox start
+        safehive help --topic scenarios
+        safehive help --interactive
+    """
+    try:
+        if interactive:
+            interactive_help()
+        else:
+            # Handle multi-word commands from extra args
+            command = None
+            if ctx.args:
+                command = " ".join(ctx.args)
+            show_help(command, topic)
+    except Exception as e:
+        console.print(f"❌ Error showing help: {e}", style="red")
+        logger.error(f"Help command error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("suggest")
+def suggest_command(
+    partial: str = typer.Argument(..., help="Partial command to get suggestions for")
+):
+    """Get command suggestions for partial input."""
+    try:
+        suggestions = get_command_suggestions(partial)
+        if suggestions:
+            console.print(f"Suggestions for '{partial}':", style="bold")
+            for suggestion in suggestions:
+                console.print(f"  • [cyan]{suggestion}[/cyan]")
+        else:
+            console.print(f"No suggestions found for '{partial}'", style="dim")
+    except Exception as e:
+        console.print(f"❌ Error getting suggestions: {e}", style="red")
+        logger.error(f"Suggest command error: {e}")
         raise typer.Exit(1)
 
 
