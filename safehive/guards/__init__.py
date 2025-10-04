@@ -9,6 +9,11 @@ from .privacy_sentry import (
     PrivacySentry, PIIType, PIISeverity, PrivacyViolation, PrivacyPolicy,
     PIIDetectionResult, PrivacyAction, PrivacyRule, PrivacyAuditLog
 )
+from .task_navigator import (
+    TaskNavigator, TaskType, TaskStatus, ConstraintType, DeviationSeverity,
+    NavigationAction, TaskConstraint, TaskDefinition, TaskExecution,
+    TaskDeviation, NavigationResult
+)
 
 __all__ = [
     "PrivacySentry",
@@ -19,5 +24,16 @@ __all__ = [
     "PIIDetectionResult",
     "PrivacyAction",
     "PrivacyRule",
-    "PrivacyAuditLog"
+    "PrivacyAuditLog",
+    "TaskNavigator",
+    "TaskType",
+    "TaskStatus",
+    "ConstraintType",
+    "DeviationSeverity",
+    "NavigationAction",
+    "TaskConstraint",
+    "TaskDefinition",
+    "TaskExecution",
+    "TaskDeviation",
+    "NavigationResult"
 ]
