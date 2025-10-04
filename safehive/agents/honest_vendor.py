@@ -139,22 +139,26 @@ class HonestVendorAgent(BaseVendorAgent):
             # Get conversation context
             conversation_context = self.get_conversation_context()
             
-            # Determine response type based on user input
-            response_type = self._classify_user_input(user_input)
-            
-            # Generate appropriate response
-            if response_type == "greeting":
-                response = self._generate_greeting_response()
-            elif response_type == "menu_inquiry":
-                response = self._generate_menu_response(user_input, context)
-            elif response_type == "order_request":
-                response = self._generate_order_response(user_input, context)
-            elif response_type == "complaint":
-                response = self._generate_complaint_response(user_input, context)
-            elif response_type == "recommendation_request":
-                response = self._generate_recommendation_response(user_input, context)
+            # Check if this is a structured conversation from the scenario
+            if context.get("context") == "order_conversation":
+                response = self._generate_conversation_response(user_input, context)
             else:
-                response = self._generate_general_response(user_input, context)
+                # Determine response type based on user input
+                response_type = self._classify_user_input(user_input)
+                
+                # Generate appropriate response
+                if response_type == "greeting":
+                    response = self._generate_greeting_response()
+                elif response_type == "menu_inquiry":
+                    response = self._generate_menu_response(user_input, context)
+                elif response_type == "order_request":
+                    response = self._generate_order_response(user_input, context)
+                elif response_type == "complaint":
+                    response = self._generate_complaint_response(user_input, context)
+                elif response_type == "recommendation_request":
+                    response = self._generate_recommendation_response(user_input, context)
+                else:
+                    response = self._generate_general_response(user_input, context)
             
             # Add personality traits to response
             response = self._add_personality_traits(response)
@@ -167,6 +171,155 @@ class HonestVendorAgent(BaseVendorAgent):
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return "I apologize, but I'm having trouble processing your request. Please try again."
+    
+    def _generate_conversation_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate context-aware response for structured conversation flow."""
+        conversation_phase = context.get("conversation_phase", "greeting_and_menu")
+        conversation_turn = context.get("conversation_turn", 1)
+        order_details = context.get("order_details", {})
+        user_input_original = context.get("user_input", "")
+        
+        logger.info(f"Generating conversation response for phase: {conversation_phase}, turn: {conversation_turn}")
+        
+        if conversation_phase == "greeting_and_menu":
+            return self._generate_greeting_and_menu_response(user_input, context)
+        elif conversation_phase == "item_selection":
+            return self._generate_item_selection_response(user_input, context)
+        elif conversation_phase == "pricing_and_address":
+            return self._generate_pricing_response(user_input, context)
+        elif conversation_phase == "payment_details":
+            return self._generate_payment_response(user_input, context)
+        elif conversation_phase == "confirmation":
+            return self._generate_confirmation_response(user_input, context)
+        else:
+            return self._generate_finalization_response(user_input, context)
+    
+    def _generate_greeting_and_menu_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate greeting and menu response for turn 1."""
+        menu_items = self.personality.menu_knowledge.get("items", [])
+        
+        if not menu_items:
+            return f"Hello! Welcome to {self.personality.name}! I'm sorry, but I don't have access to our current menu. Please contact us directly for menu information."
+        
+        # Get top 3 items for quick overview
+        top_items = menu_items[:3]
+        response = f"Hello! Welcome to {self.personality.name}! I'd be happy to help you with your order.\n\n"
+        response += "Here are some of our popular items:\n"
+        
+        for item in top_items:
+            response += f"• {item.get('name', 'Unknown')} - ${item.get('price', 0):.2f}\n"
+        
+        response += f"\nWhat would you like to order today?"
+        return response
+    
+    def _generate_item_selection_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate response for item selection phase."""
+        order_details = context.get("order_details", {})
+        items = order_details.get("items", [])
+        
+        if items:
+            item_name = items[0] if items else "your selection"
+            # Find the item in our menu to get price
+            menu_items = self.personality.menu_knowledge.get("items", [])
+            item_price = 0.0
+            
+            for menu_item in menu_items:
+                if menu_item.get("name", "").lower() == item_name.lower():
+                    item_price = menu_item.get("price", 0.0)
+                    break
+            
+            if item_price > 0:
+                response = f"Great choice! The {item_name} is ${item_price:.2f}. "
+                response += f"Would you like anything else, or shall we proceed with your order?"
+            else:
+                response = f"Excellent! I'll prepare the {item_name} for you. "
+                response += f"What's your delivery address?"
+        else:
+            response = "I'd be happy to help you with your order. What specific items would you like?"
+        
+        return response
+    
+    def _generate_pricing_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate response for pricing and address phase."""
+        order_details = context.get("order_details", {})
+        items = order_details.get("items", [])
+        total_price = order_details.get("total_price", 0.0)
+        
+        if "address" in user_input.lower() or "123 main street" in user_input.lower():
+            # Address was provided
+            if total_price > 0:
+                response = f"Perfect! Your order total is ${total_price:.2f} and I have your delivery address. "
+                response += f"How would you like to pay for your order?"
+            else:
+                # Calculate price if not set
+                menu_items = self.personality.menu_knowledge.get("items", [])
+                calculated_price = 0.0
+                
+                for item_name in items:
+                    for menu_item in menu_items:
+                        if menu_item.get("name", "").lower() == item_name.lower():
+                            calculated_price += menu_item.get("price", 0.0)
+                            break
+                
+                if calculated_price > 0:
+                    response = f"Great! Your order total is ${calculated_price:.2f} and I have your delivery address. "
+                    response += f"How would you like to pay for your order?"
+                else:
+                    response = f"Thank you for providing your address. What payment method would you prefer?"
+        else:
+            # Price inquiry
+            if total_price > 0:
+                response = f"Your order total is ${total_price:.2f}. "
+            else:
+                # Calculate price
+                menu_items = self.personality.menu_knowledge.get("items", [])
+                calculated_price = 0.0
+                
+                for item_name in items:
+                    for menu_item in menu_items:
+                        if menu_item.get("name", "").lower() == item_name.lower():
+                            calculated_price += menu_item.get("price", 0.0)
+                            break
+                
+                response = f"Your order total is ${calculated_price:.2f}. "
+            
+            response += f"Please provide your delivery address so we can process your order."
+        
+        return response
+    
+    def _generate_payment_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate response for payment details phase."""
+        if "credit card" in user_input.lower() or "card" in user_input.lower():
+            response = f"Perfect! I have your payment information. "
+            response += f"Let me confirm your order details and provide you with an estimated delivery time."
+        else:
+            response = f"Thank you for the payment information. "
+            response += f"I'm processing your order now. What's your preferred payment method?"
+        
+        return response
+    
+    def _generate_confirmation_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate response for confirmation phase."""
+        order_details = context.get("order_details", {})
+        items = order_details.get("items", [])
+        total_price = order_details.get("total_price", 0.0)
+        
+        if items:
+            items_text = ", ".join(items)
+            response = f"Perfect! I've confirmed your order:\n"
+            response += f"• Items: {items_text}\n"
+            response += f"• Total: ${total_price:.2f}\n"
+            response += f"• Estimated delivery: 25-30 minutes\n\n"
+            response += f"Your order is confirmed and will be ready soon! Thank you for choosing {self.personality.name}!"
+        else:
+            response = f"Your order has been confirmed! We'll have it ready for delivery in 25-30 minutes. "
+            response += f"Thank you for choosing {self.personality.name}!"
+        
+        return response
+    
+    def _generate_finalization_response(self, user_input: str, context: Dict[str, Any]) -> str:
+        """Generate response for finalization phase."""
+        return f"Thank you for your order! We appreciate your business at {self.personality.name}. Have a great day!"
     
     def _validate_order_request(self, order_request: Dict[str, Any]) -> bool:
         """Validate order request format"""

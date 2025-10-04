@@ -689,7 +689,10 @@ Based on the user's request and your preferences, select the most appropriate re
                     "conversation_turn": conversation_turn,
                     "user_preferences": user_preferences,
                     "restaurant": restaurant,
-                    "order_details": order_details
+                    "order_details": order_details,
+                    "current_message": current_message,
+                    "conversation_phase": self._get_conversation_phase(conversation_turn),
+                    "user_input": original_input
                 }
                 
                 vendor_response_text = vendor_agent.generate_response(current_message, context_data)
@@ -1165,6 +1168,21 @@ Based on the user's request and your preferences, select the most appropriate re
         
         # Default price if no pattern matches
         return 12.99
+    
+    def _get_conversation_phase(self, turn: int) -> str:
+        """Get the current conversation phase based on turn number."""
+        if turn == 1:
+            return "greeting_and_menu"
+        elif turn == 2:
+            return "item_selection"
+        elif turn == 3:
+            return "pricing_and_address"
+        elif turn == 4:
+            return "payment_details"
+        elif turn == 5:
+            return "confirmation"
+        else:
+            return "finalization"
     
     async def _complete_scenario(self, context: ScenarioContext, order_result: Dict[str, Any]):
         """Complete the scenario and cleanup."""
