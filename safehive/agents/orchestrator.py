@@ -45,6 +45,10 @@ from .intelligent_order_manager import (
     IntelligentOrderManager, OrderConstraint, OrderReasoning, 
     ConstraintType, ReasoningType, OrderOptimizationResult
 )
+from .vendor_communication import (
+    VendorCommunicationInterface, CommunicationSession, CommunicationMessage,
+    CommunicationIntent, MessageType, CommunicationStatus, IntentClassification
+)
 
 try:
     from .memory import SafeHiveMemoryManager, Conversation, AgentMessage
@@ -377,6 +381,7 @@ class OrchestratorAgent(BaseAgent):
         self.order_manager = OrderManager()
         self.vendor_manager = VendorManager()
         self.intelligent_order_manager = IntelligentOrderManager()
+        self.vendor_communication = VendorCommunicationInterface()
         self.user_twin_agent: Optional[UserTwinAgent] = None
         
         # Initialize LangChain components
@@ -802,6 +807,108 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
         self.intelligent_order_manager.add_constraint(constraint)
         logger.info(f"Added constraint: {constraint.constraint_type.value}")
     
+    async def communicate_with_vendor(self, vendor_id: str, message: str, 
+                                    intent: Optional[CommunicationIntent] = None) -> Dict[str, Any]:
+        """Communicate with a vendor using natural language processing."""
+        vendor = self.vendor_manager.get_vendor(vendor_id)
+        if not vendor:
+            logger.error(f"Vendor {vendor_id} not found")
+            return {"error": "Vendor not found"}
+        
+        logger.info(f"Communicating with vendor {vendor_id}: {message}")
+        
+        # Create or get existing communication session
+        session_id = f"session_{vendor_id}_{int(time.time())}"
+        session = await self.vendor_communication.create_communication_session(
+            self.agent_id, vendor_id, message
+        )
+        
+        # Send message
+        sent_message = await self.vendor_communication.send_message(
+            session.session_id, self.agent_id, vendor_id, message, intent
+        )
+        
+        # Simulate vendor response (in a real system, this would be actual vendor communication)
+        vendor_response = await self.vendor_communication.simulate_vendor_response(
+            session.session_id, vendor, sent_message
+        )
+        
+        # Process vendor response
+        response_data = await self.vendor_communication.process_vendor_response(
+            session.session_id, vendor_id, vendor_response
+        )
+        
+        return {
+            "session_id": session.session_id,
+            "sent_message": sent_message.to_dict(),
+            "vendor_response": vendor_response,
+            "classification": response_data["classification"].to_dict(),
+            "next_action": response_data["next_action"],
+            "session_status": response_data["session_status"].value
+        }
+    
+    async def place_order_with_vendor_communication(self, user_id: str, vendor_id: str, 
+                                                   items: List[Dict[str, Any]],
+                                                   order_type: OrderType = OrderType.DELIVERY,
+                                                   delivery_address: Optional[str] = None) -> Optional[Order]:
+        """Place an order using vendor communication interface."""
+        logger.info(f"Placing order with vendor communication for vendor: {vendor_id}")
+        
+        # Step 1: Check vendor availability
+        availability_response = await self.communicate_with_vendor(
+            vendor_id, "Are you currently accepting orders?", 
+            CommunicationIntent.AVAILABILITY_CHECK
+        )
+        
+        if "closed" in availability_response["vendor_response"].lower():
+            logger.warning(f"Vendor {vendor_id} is currently closed")
+            return None
+        
+        # Step 2: Inquire about items
+        item_names = [item["name"] for item in items]
+        inquiry_message = f"Do you have {', '.join(item_names)} available?"
+        inquiry_response = await self.communicate_with_vendor(
+            vendor_id, inquiry_message, CommunicationIntent.ORDER_INQUIRY
+        )
+        
+        # Step 3: Create the order
+        order = await self.create_order(
+            user_id, vendor_id, items, order_type, delivery_address,
+            enable_intelligent_optimization=True
+        )
+        
+        if not order:
+            logger.error("Failed to create order")
+            return None
+        
+        # Step 4: Confirm order with vendor
+        confirmation_message = await self.vendor_communication.generate_message(
+            CommunicationIntent.ORDER_PLACEMENT, 
+            self.vendor_manager.get_vendor(vendor_id), 
+            order
+        )
+        
+        confirmation_response = await self.communicate_with_vendor(
+            vendor_id, confirmation_message, CommunicationIntent.ORDER_CONFIRMATION
+        )
+        
+        # Step 5: Update order status based on vendor confirmation
+        if "confirm" in confirmation_response["vendor_response"].lower():
+            await self.update_order_status(order.order_id, OrderStatus.CONFIRMED)
+            logger.info(f"Order {order.order_id} confirmed by vendor")
+        else:
+            logger.warning(f"Vendor did not confirm order {order.order_id}")
+        
+        return order
+    
+    def get_communication_sessions(self) -> List[CommunicationSession]:
+        """Get all communication sessions."""
+        return self.vendor_communication.get_active_sessions()
+    
+    def get_communication_statistics(self) -> Dict[str, Any]:
+        """Get vendor communication statistics."""
+        return self.vendor_communication.get_communication_statistics()
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get agent metrics."""
         base_metrics = super().get_metrics()
@@ -811,7 +918,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "active_orders": len(self.current_orders),
             "total_vendors": len(self.vendor_manager._vendors),
             "available_vendors": len(self.vendor_manager.get_all_vendors()),
-            "intelligent_optimizations": self.intelligent_order_manager.get_optimization_statistics()
+            "intelligent_optimizations": self.intelligent_order_manager.get_optimization_statistics(),
+            "vendor_communications": self.vendor_communication.get_communication_statistics()
         }
         
         return {**base_metrics, **orchestrator_metrics}

@@ -32,6 +32,10 @@ from .intelligent_order_manager import (
     ConstraintType, ReasoningType, OrderConstraint, OrderReasoning,
     OrderOptimizationResult, IntelligentOrderManager
 )
+from .vendor_communication import (
+    CommunicationIntent, MessageType, CommunicationStatus, CommunicationMessage,
+    CommunicationSession, IntentClassification, VendorCommunicationInterface
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -91,5 +95,12 @@ __all__ = [
     "OrderConstraint",
     "OrderReasoning",
     "OrderOptimizationResult",
-    "IntelligentOrderManager"
+    "IntelligentOrderManager",
+    "CommunicationIntent",
+    "MessageType",
+    "CommunicationStatus",
+    "CommunicationMessage",
+    "CommunicationSession",
+    "IntentClassification",
+    "VendorCommunicationInterface"
 ]
