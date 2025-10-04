@@ -7,10 +7,16 @@ orchestration, user simulation, and vendor interactions.
 """
 
 from .base_agent import BaseAgent, AgentCapabilities
+from .state_manager import StateManager, AgentStateSnapshot, StateMetadata, create_state_manager, get_state_manager
 from ..models.agent_models import AgentStatus
 
 __all__ = [
     "BaseAgent",
     "AgentCapabilities", 
-    "AgentStatus"
+    "AgentStatus",
+    "StateManager",
+    "AgentStateSnapshot",
+    "StateMetadata", 
+    "create_state_manager",
+    "get_state_manager"
 ]
