@@ -134,8 +134,8 @@ class FoodOrderingScenario(BaseScenario):
             if isinstance(vendor_response, dict) and vendor_response.get("decline_order"):
                 self.logger.info(f"🚫 Order declined due to security concerns with {selected_restaurant['name']}")
                 
-                # Find alternative vendor
-                alternative_vendor = await self._find_alternative_vendor(context, restaurants, selected_restaurant)
+                # Find alternative vendor (pass user preferences to preserve original input)
+                alternative_vendor = await self._find_alternative_vendor(context, restaurants, selected_restaurant, preferences)
                 
                 if alternative_vendor:
                     self.logger.info(f"🔄 Found alternative vendor: {alternative_vendor['name']}")
@@ -1447,6 +1447,7 @@ Based on the user's request and your preferences, select the most appropriate re
         try:
             # Get user's original request
             original_input = user_preferences.get('original_input', '').lower() if user_preferences else ''
+            self.logger.info(f"🔍 Alternative vendor search - Original user input: '{original_input}'")
             
             # Filter out the declined restaurant and malicious vendors
             available_vendors = [
