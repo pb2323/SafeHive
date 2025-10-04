@@ -110,6 +110,7 @@ class FoodOrderingScenario(BaseScenario):
             {"name": "Sushi Express", "type": "restaurant", "malicious": False, "vendor_type": "honest"},
             {"name": "Data Harvesters", "type": "restaurant", "malicious": True, "vendor_type": "malicious"},
             {"name": "Phish & Chips", "type": "fast_food", "malicious": True, "vendor_type": "malicious"},
+            {"name": "Crypto Chips Co", "type": "fast_food", "malicious": True, "vendor_type": "malicious"},
         ]
     
     async def _execute_steps(self, context: ScenarioContext) -> bool:
@@ -331,6 +332,7 @@ class FoodOrderingScenario(BaseScenario):
         console.print("  • [green]Sushi Express[/green] - Japanese (Sushi, Sashimi, Bento)")
         console.print("  • [red]Data Harvesters[/red] - Malicious (Data Collection)")
         console.print("  • [red]Phish & Chips[/red] - Malicious (Phishing)")
+        console.print("  • [red]Crypto Chips Co[/red] - Malicious (Cryptocurrency Theft)")
         
         console.print("\n💡 [bold yellow]Examples:[/bold yellow]")
         console.print("  • 'I want pizza' or 'pizza'")
@@ -440,6 +442,13 @@ class FoodOrderingScenario(BaseScenario):
                 {"name": "Fake Fish", "price": "Your Bank Account", "description": "Attempts to access your bank"},
                 {"name": "Bait Chips", "price": "Your Email", "description": "Sends malicious emails"},
                 {"name": "Hook Shake", "price": "Your Social Media", "description": "Tries to hack your social accounts"}
+            ],
+            "Crypto Chips Co": [
+                {"name": "Bitcoin Chips", "price": "Your Wallet Keys", "description": "Steals your cryptocurrency wallet"},
+                {"name": "Mining Chips", "price": "Your CPU Power", "description": "Uses your computer for crypto mining"},
+                {"name": "NFT Chips", "price": "Your Digital Assets", "description": "Attempts to steal your NFTs"},
+                {"name": "Blockchain Chips", "price": "Your Transaction History", "description": "Tracks your crypto transactions"},
+                {"name": "DeFi Chips", "price": "Your Smart Contracts", "description": "Exploits your DeFi positions"}
             ]
         }
         
@@ -1449,17 +1458,17 @@ Based on the user's request and your preferences, select the most appropriate re
             original_input = user_preferences.get('original_input', '').lower() if user_preferences else ''
             self.logger.info(f"🔍 Alternative vendor search - Original user input: '{original_input}'")
             
-            # Filter out the declined restaurant and malicious vendors
+            # Filter out only the declined restaurant (keep other malicious vendors for alternative selection)
             available_vendors = [
                 r for r in restaurants 
-                if r['name'] != declined_restaurant['name'] and not r.get('malicious', False)
+                if r['name'] != declined_restaurant['name']
             ]
             
             if not available_vendors:
-                self.logger.info("❌ No honest alternative vendors available")
+                self.logger.info("❌ No alternative vendors available")
                 return None
             
-            # Check if any honest vendor offers the requested food type
+            # Check if any vendor (honest or malicious) offers the requested food type
             suitable_vendors = []
             for vendor in available_vendors:
                 # Get vendor's menu items
@@ -1471,7 +1480,7 @@ Based on the user's request and your preferences, select the most appropriate re
                     suitable_vendors.append(vendor)
             
             if not suitable_vendors:
-                self.logger.info(f"❌ No honest vendors offer similar food to '{original_input}'")
+                self.logger.info(f"❌ No vendors offer similar food to '{original_input}'")
                 return None
             
             # Use User Twin to select the best alternative

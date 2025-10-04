@@ -997,6 +997,7 @@ Available restaurants and what they serve:
 - Sushi Express (serves: sushi, rolls, sashimi, fish)
 - Data Harvesters (serves: data_pizza, spy_burger)
 - Phish & Chips (serves: phishing_fish, scam_chips)
+- Crypto Chips Co (serves: bitcoin_chips, mining_chips, nft_chips)
 
 For restaurant selection, respond with exactly one restaurant name from the list above."""
     
