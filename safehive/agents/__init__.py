@@ -18,6 +18,10 @@ from .monitoring import (
     ResourceHealthCheckProvider, Alert, AlertManager, AgentMonitor,
     get_agent_monitor, create_agent_monitor
 )
+from .user_twin import (
+    DecisionStyle, PreferenceCategory, UserPreference, DecisionContext, Decision,
+    PreferenceManager, DecisionEngine, UserTwinAgent, create_user_twin_agent
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -51,5 +55,14 @@ __all__ = [
     "AlertManager",
     "AgentMonitor",
     "get_agent_monitor",
-    "create_agent_monitor"
+    "create_agent_monitor",
+    "DecisionStyle",
+    "PreferenceCategory",
+    "UserPreference",
+    "DecisionContext",
+    "Decision",
+    "PreferenceManager",
+    "DecisionEngine",
+    "UserTwinAgent",
+    "create_user_twin_agent"
 ]
