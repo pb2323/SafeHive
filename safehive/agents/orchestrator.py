@@ -61,6 +61,10 @@ from .error_handling import (
     ErrorHandler, ErrorContext, ErrorRecord, ErrorCategory, ErrorSeverity,
     RetryStrategy, RecoveryAction, LearningInsight, with_error_handling
 )
+from .conversation_management import (
+    ConversationManager, ConversationSession, ConversationTurn, ConversationContext,
+    ConversationState, ConversationType, TurnType, ContextType, ConversationFlow
+)
 
 try:
     from .memory import SafeHiveMemoryManager, Conversation, AgentMessage
@@ -397,6 +401,7 @@ class OrchestratorAgent(BaseAgent):
         self.order_validation = OrderValidationEngine()
         self.order_confirmation = OrderConfirmationManager()
         self.error_handler = ErrorHandler()
+        self.conversation_manager = ConversationManager()
         self.user_twin_agent: Optional[UserTwinAgent] = None
         
         # Initialize LangChain components
@@ -1174,6 +1179,233 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
         self.error_handler.retry_configs[error_category] = retry_config
         logger.info(f"Added custom retry config for {error_category.value}")
     
+    def create_conversation_session(self, user_id: str, conversation_type: ConversationType,
+                                  initial_context: Optional[Dict[str, Any]] = None) -> ConversationSession:
+        """Create a new conversation session."""
+        return self.conversation_manager.create_conversation_session(
+            user_id, conversation_type, initial_context
+        )
+    
+    def add_conversation_turn(self, session_id: str, turn_type: TurnType, content: str,
+                            intent: Optional[str] = None, entities: Optional[Dict[str, Any]] = None,
+                            context_updates: Optional[Dict[str, Any]] = None,
+                            confidence: float = 1.0) -> Optional[ConversationTurn]:
+        """Add a turn to a conversation session."""
+        return self.conversation_manager.add_turn_to_conversation(
+            session_id, turn_type, content, intent, entities, context_updates, confidence
+        )
+    
+    def get_conversation_session(self, session_id: str) -> Optional[ConversationSession]:
+        """Get a conversation session by ID."""
+        return self.conversation_manager.get_conversation_session(session_id)
+    
+    def get_user_conversations(self, user_id: str, limit: int = 10) -> List[ConversationSession]:
+        """Get recent conversations for a user."""
+        return self.conversation_manager.get_user_conversations(user_id, limit)
+    
+    def update_conversation_state(self, session_id: str, state: ConversationState) -> bool:
+        """Update the state of a conversation session."""
+        return self.conversation_manager.update_conversation_state(session_id, state)
+    
+    def analyze_conversation_context(self, session_id: str) -> Dict[str, Any]:
+        """Analyze the context of a conversation session."""
+        return self.conversation_manager.analyze_conversation_context(session_id)
+    
+    def suggest_next_conversation_turn(self, session_id: str) -> Optional[TurnType]:
+        """Suggest the next turn type based on conversation flow."""
+        return self.conversation_manager.suggest_next_turn(session_id)
+    
+    def check_conversation_completion(self, session_id: str) -> Dict[str, Any]:
+        """Check if a conversation meets completion criteria."""
+        return self.conversation_manager.check_conversation_completion(session_id)
+    
+    def generate_conversation_summary(self, session_id: str) -> Optional[str]:
+        """Generate a summary of the conversation."""
+        return self.conversation_manager.generate_conversation_summary(session_id)
+    
+    def get_conversation_statistics(self) -> Dict[str, Any]:
+        """Get conversation management statistics."""
+        return self.conversation_manager.get_conversation_statistics()
+    
+    def cleanup_inactive_conversations(self, max_idle_minutes: int = 60) -> int:
+        """Clean up inactive conversation sessions."""
+        return self.conversation_manager.cleanup_inactive_sessions(max_idle_minutes)
+    
+    async def process_conversational_order(self, session_id: str, user_input: str) -> Dict[str, Any]:
+        """Process an order through conversational interface."""
+        session = self.get_conversation_session(session_id)
+        if not session:
+            return {"error": "Conversation session not found"}
+        
+        # Add user input turn
+        self.add_conversation_turn(
+            session_id, TurnType.USER_INPUT, user_input,
+            intent="order_request", entities={"user_input": user_input}
+        )
+        
+        # Analyze conversation context
+        context_analysis = self.analyze_conversation_context(session_id)
+        
+        # Determine conversation state and next action
+        completion_status = self.check_conversation_completion(session_id)
+        
+        response = {
+            "session_id": session_id,
+            "user_input": user_input,
+            "context_analysis": context_analysis,
+            "completion_status": completion_status,
+            "suggested_next_turn": self.suggest_next_conversation_turn(session_id)
+        }
+        
+        # Process based on conversation type and current state
+        if session.conversation_type == ConversationType.ORDER_PLACEMENT:
+            response.update(await self._process_order_placement_conversation(session, user_input))
+        elif session.conversation_type == ConversationType.VENDOR_SEARCH:
+            response.update(await self._process_vendor_search_conversation(session, user_input))
+        elif session.conversation_type == ConversationType.PREFERENCE_UPDATE:
+            response.update(await self._process_preference_update_conversation(session, user_input))
+        else:
+            response["agent_response"] = "I understand. How can I help you with your food order?"
+        
+        # Add agent response turn
+        if "agent_response" in response:
+            self.add_conversation_turn(
+                session_id, TurnType.AGENT_RESPONSE, response["agent_response"],
+                intent="agent_response", entities=response.get("entities", {})
+            )
+        
+        return response
+    
+    async def _process_order_placement_conversation(self, session: ConversationSession, user_input: str) -> Dict[str, Any]:
+        """Process order placement conversation."""
+        # Check if we have enough context to create an order
+        order_items = session.get_context("order_items")
+        vendor_selection = session.get_context("vendor_selection")
+        
+        if order_items and vendor_selection:
+            # Try to create the order
+            try:
+                # Parse order items (simplified for demo)
+                items = [{"name": item, "quantity": 1, "unit_price": 10.0} for item in order_items.split(",")]
+                
+                order = await self.create_order_with_error_handling(
+                    session.user_id, vendor_selection, items
+                )
+                
+                if order:
+                    session.update_context("order_created", order.order_id, "system")
+                    return {
+                        "agent_response": f"Great! I've created your order {order.order_id}. The total is ${order.total_amount:.2f}. Would you like me to confirm this order?",
+                        "order_created": True,
+                        "order_id": order.order_id,
+                        "entities": {"order_id": order.order_id, "total_amount": order.total_amount}
+                    }
+                else:
+                    return {
+                        "agent_response": "I had trouble creating your order. Could you please provide the items and vendor again?",
+                        "order_created": False
+                    }
+            except Exception as e:
+                logger.error(f"Error creating order in conversation: {e}")
+                return {
+                    "agent_response": "I encountered an error while creating your order. Please try again.",
+                    "order_created": False
+                }
+        else:
+            # Need more information
+            if not order_items:
+                return {
+                    "agent_response": "What items would you like to order? Please list them for me.",
+                    "missing_context": "order_items"
+                }
+            elif not vendor_selection:
+                return {
+                    "agent_response": "Which vendor would you like to order from? I can help you find one.",
+                    "missing_context": "vendor_selection"
+                }
+        
+        return {"agent_response": "I need more information to help you place an order."}
+    
+    async def _process_vendor_search_conversation(self, session: ConversationSession, user_input: str) -> Dict[str, Any]:
+        """Process vendor search conversation."""
+        search_criteria = session.get_context("search_criteria")
+        selected_vendor = session.get_context("selected_vendor")
+        
+        if not search_criteria:
+            # Extract search criteria from user input
+            session.update_context("search_criteria", user_input, "user_input")
+            
+            # Perform vendor search
+            vendors = self.search_vendors(user_input)
+            
+            if vendors:
+                vendor_list = [f"{v.name} ({v.cuisine_type})" for v in vendors[:5]]
+                return {
+                    "agent_response": f"I found these vendors: {', '.join(vendor_list)}. Which one would you like to choose?",
+                    "vendors_found": len(vendors),
+                    "vendor_list": vendor_list,
+                    "entities": {"search_criteria": user_input, "vendors_found": len(vendors)}
+                }
+            else:
+                return {
+                    "agent_response": "I couldn't find any vendors matching your criteria. Could you try different search terms?",
+                    "vendors_found": 0
+                }
+        elif not selected_vendor:
+            # User is selecting a vendor
+            session.update_context("selected_vendor", user_input, "user_input")
+            return {
+                "agent_response": f"Great! I've selected {user_input} for you. Would you like to see their menu or place an order?",
+                "vendor_selected": True,
+                "entities": {"selected_vendor": user_input}
+            }
+        
+        return {"agent_response": "How else can I help you with vendor selection?"}
+    
+    async def _process_preference_update_conversation(self, session: ConversationSession, user_input: str) -> Dict[str, Any]:
+        """Process preference update conversation."""
+        preference_type = session.get_context("preference_type")
+        new_value = session.get_context("new_preference_value")
+        
+        if not preference_type:
+            # Extract preference type from user input
+            session.update_context("preference_type", user_input, "user_input")
+            return {
+                "agent_response": f"I understand you want to update your {user_input} preferences. What would you like to change it to?",
+                "entities": {"preference_type": user_input}
+            }
+        elif not new_value:
+            # User is providing new preference value
+            session.update_context("new_preference_value", user_input, "user_input")
+            
+            # Update user preferences if user twin agent is available
+            if self.user_twin_agent:
+                try:
+                    # This is a simplified update - in reality, you'd parse the preference more carefully
+                    self.user_twin_agent.add_preference(
+                        PreferenceCategory.FOOD, preference_type, user_input, 0.8
+                    )
+                    
+                    return {
+                        "agent_response": f"Perfect! I've updated your {preference_type} preference to {user_input}. Is there anything else you'd like to change?",
+                        "preference_updated": True,
+                        "entities": {"preference_type": preference_type, "new_value": user_input}
+                    }
+                except Exception as e:
+                    logger.error(f"Error updating preference: {e}")
+                    return {
+                        "agent_response": "I had trouble updating your preference. Please try again.",
+                        "preference_updated": False
+                    }
+            else:
+                return {
+                    "agent_response": "I've noted your preference change. The system will remember this for future orders.",
+                    "preference_updated": True,
+                    "entities": {"preference_type": preference_type, "new_value": user_input}
+                }
+        
+        return {"agent_response": "Your preferences have been updated successfully!"}
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get agent metrics."""
         base_metrics = super().get_metrics()
@@ -1187,7 +1419,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "vendor_communications": self.vendor_communication.get_communication_statistics(),
             "order_validations": self.order_validation.get_validation_statistics(),
             "order_confirmations": self.order_confirmation.get_confirmation_statistics(),
-            "error_handling": self.error_handler.get_error_statistics()
+            "error_handling": self.error_handler.get_error_statistics(),
+            "conversations": self.conversation_manager.get_conversation_statistics()
         }
         
         return {**base_metrics, **orchestrator_metrics}

@@ -48,6 +48,10 @@ from .error_handling import (
     ErrorSeverity, ErrorCategory, RetryStrategy, RecoveryAction,
     ErrorContext, ErrorRecord, RetryConfig, LearningInsight, ErrorHandler, with_error_handling
 )
+from .conversation_management import (
+    ConversationState, ConversationType, TurnType, ContextType,
+    ConversationTurn, ConversationContext, ConversationSession, ConversationFlow, ConversationManager
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -139,5 +143,14 @@ __all__ = [
     "RetryConfig",
     "LearningInsight",
     "ErrorHandler",
-    "with_error_handling"
+    "with_error_handling",
+    "ConversationState",
+    "ConversationType",
+    "TurnType",
+    "ContextType",
+    "ConversationTurn",
+    "ConversationContext",
+    "ConversationSession",
+    "ConversationFlow",
+    "ConversationManager"
 ]
