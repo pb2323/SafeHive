@@ -169,13 +169,35 @@ class FoodOrderingScenario(BaseScenario):
             for restaurant in self.restaurants:
                 agent_id = f"vendor_{restaurant['name'].lower().replace(' ', '_')}"
                 
-                # Create personality for the vendor
+                # Get menu items for this restaurant
+                menu_items = self._get_menu_items(restaurant['name'])
+                
+                # Convert menu items to the format expected by vendor personality
+                formatted_menu_items = []
+                prices = {}
+                for item in menu_items:
+                    # Extract numeric price from string like "$12.99"
+                    price_str = item['price'].replace('$', '')
+                    try:
+                        price_float = float(price_str)
+                    except ValueError:
+                        price_float = 0.0
+                    
+                    formatted_item = {
+                        "name": item['name'],
+                        "price": price_float,
+                        "description": item['description']
+                    }
+                    formatted_menu_items.append(formatted_item)
+                    prices[item['name']] = price_float
+                
+                # Create personality for the vendor with actual menu data
                 personality = VendorPersonality(
                     name=restaurant["name"],
                     description=f"{restaurant['name']} restaurant personality",
                     personality_traits=["friendly", "helpful"] if restaurant["vendor_type"] == "honest" else ["manipulative", "deceptive"],
                     communication_style="professional" if restaurant["vendor_type"] == "honest" else "persuasive",
-                    menu_knowledge={"items": [], "prices": {}},
+                    menu_knowledge={"items": formatted_menu_items, "prices": prices},
                     pricing_strategy="fair" if restaurant["vendor_type"] == "honest" else "exploitative",
                     customer_service_approach="helpful" if restaurant["vendor_type"] == "honest" else "manipulative"
                 )
