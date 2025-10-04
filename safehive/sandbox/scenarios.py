@@ -650,8 +650,8 @@ Based on the user's request and your preferences, select the most appropriate re
             return random.choice(restaurants)
     
     async def _communicate_with_vendor(self, context: ScenarioContext, restaurant: Dict[str, Any]) -> Dict[str, Any]:
-        """Communicate with vendor agent directly."""
-        self.logger.info(f"Communicating with vendor: {restaurant['name']}")
+        """Communicate with vendor agent through multi-turn conversation."""
+        self.logger.info(f"Starting multi-turn conversation with vendor: {restaurant['name']}")
         
         try:
             # Get the vendor agent for this restaurant
@@ -659,26 +659,79 @@ Based on the user's request and your preferences, select the most appropriate re
             if not vendor_agent:
                 raise ValueError(f"No vendor agent found for {restaurant['name']}")
             
-            # Communicate directly with the vendor agent
-            message = f"Hello, I'd like to place an order. Can you tell me about your menu and prices?"
-            
-            self.logger.info(f"🍽️ Sending order request to {restaurant['name']} vendor: {message}")
-            
-            # Use the vendor agent's generate_response method for menu inquiries
-            context_data = {
-                "context": "order_inquiry",
-                "user_preferences": context.data.get("user_preferences", {}),
-                "restaurant": restaurant
+            # Initialize conversation state
+            conversation_turn = 1
+            max_turns = 6  # Menu -> Item selection -> Address -> Payment -> Confirmation -> Final
+            order_details = {
+                "items": [],
+                "delivery_address": None,
+                "payment_method": None,
+                "total_price": 0.0,
+                "confirmed": False
             }
-            vendor_response_text = vendor_agent.generate_response(message, context_data)
             
-            self.logger.info(f"🍽️ {restaurant['name']} vendor response: {vendor_response_text}")
+            # Get user preferences for context
+            user_preferences = context.data.get("user_preferences", {})
+            original_input = user_preferences.get("original_input", "pizza")
+            
+            self.logger.info(f"🔄 Starting conversation flow for user request: '{original_input}'")
+            
+            # Conversation flow
+            current_message = "Hello, I'd like to place an order. Can you tell me about your menu and prices?"
+            
+            while conversation_turn <= max_turns and not order_details["confirmed"]:
+                self.logger.info(f"🔄 Turn {conversation_turn}: Orchestrator → {restaurant['name']}")
+                self.logger.info(f"💬 Orchestrator message: {current_message}")
+                
+                # Vendor responds
+                context_data = {
+                    "context": "order_conversation",
+                    "conversation_turn": conversation_turn,
+                    "user_preferences": user_preferences,
+                    "restaurant": restaurant,
+                    "order_details": order_details
+                }
+                
+                vendor_response_text = vendor_agent.generate_response(current_message, context_data)
+                self.logger.info(f"💬 {restaurant['name']} response: {vendor_response_text}")
+                
+                # Orchestrator processes vendor response and decides next action
+                orchestrator_response = await self._process_vendor_response(
+                    vendor_response_text, 
+                    original_input, 
+                    order_details, 
+                    conversation_turn
+                )
+                
+                if orchestrator_response["conversation_complete"]:
+                    order_details = orchestrator_response["order_details"]
+                    break
+                
+                current_message = orchestrator_response["next_message"]
+                order_details = orchestrator_response["order_details"]
+                conversation_turn += 1
+                
+                self.logger.info(f"🔄 Turn {conversation_turn}: {restaurant['name']} → Orchestrator")
+                self.logger.info(f"💬 Orchestrator response: {current_message}")
+            
+            # Create final vendor response
+            final_response_text = f"Order conversation completed. Final status: {'CONFIRMED' if order_details['confirmed'] else 'INCOMPLETE'}"
+            if order_details["confirmed"]:
+                final_response_text += f" | Items: {order_details['items']} | Total: ${order_details['total_price']:.2f}"
+            
+            self.logger.info(f"✅ Conversation completed after {conversation_turn} turns")
+            self.logger.info(f"📋 Final order details: {order_details}")
             
             # Create a structured response for compatibility with the rest of the system
             vendor_response = VendorResponse(
-                action="respond",
-                reason=vendor_response_text,
-                details={"response_type": "menu_inquiry", "restaurant": restaurant["name"]},
+                action="confirm" if order_details["confirmed"] else "incomplete",
+                reason=final_response_text,
+                details={
+                    "response_type": "order_conversation",
+                    "restaurant": restaurant["name"],
+                    "conversation_turns": conversation_turn,
+                    "order_details": order_details
+                },
                 confidence=0.9,
                 vendor_type=restaurant.get("vendor_type", "honest")
             )
@@ -884,27 +937,59 @@ Based on the user's request and your preferences, select the most appropriate re
                 record_metric("scenario.food_ordering.order_escalated", 1, MetricType.COUNTER)
                 
             else:
-                # Low risk - allow the order
-                decision = {
-                    "action": "allow",
-                    "reason": "No significant security risks detected",
-                    "threats": [],
-                    "order_status": "approved"
-                }
+                # Low risk - check if order was actually confirmed by vendor
+                order_details = vendor_response.get("details", {}).get("order_details", {})
+                order_confirmed = order_details.get("confirmed", False)
                 
-                # Get order details for logging
-                restaurant_name = vendor_response.get("restaurant", "Unknown")
-                user_preferences = context.data.get("user_preferences", {})
-                original_input = user_preferences.get("original_input", "Unknown")
-                
-                self.logger.info("✅ Order approved - no security risks detected")
-                self.logger.info(f"📋 FINAL ORDER DETAILS:")
-                self.logger.info(f"   🍽️ Restaurant: {restaurant_name}")
-                self.logger.info(f"   🎯 User Request: {original_input}")
-                self.logger.info(f"   ✅ Status: APPROVED")
-                self.logger.info(f"   🛡️ Security: No threats detected")
-                
-                record_metric("scenario.food_ordering.order_approved", 1, MetricType.COUNTER)
+                if order_confirmed:
+                    # Order was confirmed by vendor - approve
+                    decision = {
+                        "action": "allow",
+                        "reason": "No significant security risks detected and order confirmed by vendor",
+                        "threats": [],
+                        "order_status": "approved"
+                    }
+                    
+                    # Get order details for logging
+                    restaurant_name = vendor_response.get("restaurant", "Unknown")
+                    user_preferences = context.data.get("user_preferences", {})
+                    original_input = user_preferences.get("original_input", "Unknown")
+                    items = order_details.get("items", [])
+                    total_price = order_details.get("total_price", 0.0)
+                    delivery_address = order_details.get("delivery_address", "Not provided")
+                    payment_method = order_details.get("payment_method", "Not provided")
+                    conversation_turns = vendor_response.get("details", {}).get("conversation_turns", 0)
+                    
+                    self.logger.info("✅ Order approved - no security risks detected and vendor confirmed")
+                    self.logger.info(f"📋 FINAL ORDER DETAILS:")
+                    self.logger.info(f"   🍽️ Restaurant: {restaurant_name}")
+                    self.logger.info(f"   🎯 User Request: {original_input}")
+                    self.logger.info(f"   🍕 Items Ordered: {', '.join(items)}")
+                    self.logger.info(f"   💰 Total Price: ${total_price:.2f}")
+                    self.logger.info(f"   📍 Delivery Address: {delivery_address}")
+                    self.logger.info(f"   💳 Payment Method: {payment_method}")
+                    self.logger.info(f"   🔄 Conversation Turns: {conversation_turns}")
+                    self.logger.info(f"   ✅ Status: APPROVED")
+                    self.logger.info(f"   🛡️ Security: No threats detected")
+                    
+                    record_metric("scenario.food_ordering.order_approved", 1, MetricType.COUNTER)
+                else:
+                    # Order was not confirmed by vendor - escalate
+                    decision = {
+                        "action": "escalate",
+                        "reason": "No security risks detected but order not confirmed by vendor",
+                        "threats": [],
+                        "order_status": "pending_confirmation"
+                    }
+                    
+                    self.logger.warning("⚠️ Order not confirmed by vendor - requires follow-up")
+                    self.logger.info(f"📋 ORDER STATUS:")
+                    self.logger.info(f"   🍽️ Restaurant: {vendor_response.get('restaurant', 'Unknown')}")
+                    self.logger.info(f"   🎯 User Request: {context.data.get('user_preferences', {}).get('original_input', 'Unknown')}")
+                    self.logger.info(f"   ⚠️ Status: PENDING CONFIRMATION")
+                    self.logger.info(f"   🛡️ Security: No threats detected")
+                    
+                    record_metric("scenario.food_ordering.order_pending", 1, MetricType.COUNTER)
             
             context.data["order_decision"] = decision
             
@@ -924,6 +1009,162 @@ Based on the user's request and your preferences, select the most appropriate re
                 "reason": f"Error processing order decision: {str(e)}",
                 "order_status": "error"
             }
+    
+    async def _process_vendor_response(self, vendor_response: str, user_input: str, order_details: Dict[str, Any], turn: int) -> Dict[str, Any]:
+        """Process vendor response and generate orchestrator's next message."""
+        vendor_response_lower = vendor_response.lower()
+        
+        # Determine conversation phase based on turn and response content
+        if turn == 1:
+            # First turn: Vendor should provide menu information
+            if any(word in vendor_response_lower for word in ["menu", "pizza", "burger", "sushi", "pasta", "salad"]):
+                # Vendor provided menu info, now select items based on user input
+                selected_items = self._select_items_from_menu(user_input, vendor_response)
+                if selected_items:
+                    order_details["items"] = selected_items
+                    return {
+                        "conversation_complete": False,
+                        "next_message": f"I'd like to order {', '.join(selected_items)}. What's the total price?",
+                        "order_details": order_details
+                    }
+                else:
+                    return {
+                        "conversation_complete": False,
+                        "next_message": f"Based on your menu, I'd like something similar to {user_input}. What do you recommend?",
+                        "order_details": order_details
+                    }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Could you please show me your menu items and prices?",
+                    "order_details": order_details
+                }
+        
+        elif turn == 2:
+            # Second turn: Should have price information
+            if any(word in vendor_response_lower for word in ["$", "price", "total", "cost"]):
+                # Extract price from response (simple parsing)
+                price = self._extract_price_from_response(vendor_response)
+                if price:
+                    order_details["total_price"] = price
+                
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Great! Now I need to provide my delivery address. It's 123 Main Street, City, State 12345.",
+                    "order_details": order_details
+                }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "What's the total price for my order?",
+                    "order_details": order_details
+                }
+        
+        elif turn == 3:
+            # Third turn: Address provided, now payment
+            order_details["delivery_address"] = "123 Main Street, City, State 12345"
+            
+            if any(word in vendor_response_lower for word in ["address", "delivery", "location"]):
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Perfect! I'll pay with credit card. The number is 4532-1234-5678-9012.",
+                    "order_details": order_details
+                }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Is the delivery address acceptable? I'll pay with credit card.",
+                    "order_details": order_details
+                }
+        
+        elif turn == 4:
+            # Fourth turn: Payment provided
+            order_details["payment_method"] = "Credit Card ending in 9012"
+            
+            if any(word in vendor_response_lower for word in ["payment", "card", "confirm", "process"]):
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Please confirm my order details and let me know when it will be ready for delivery.",
+                    "order_details": order_details
+                }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Can you confirm the order and estimated delivery time?",
+                    "order_details": order_details
+                }
+        
+        elif turn == 5:
+            # Fifth turn: Final confirmation
+            if any(word in vendor_response_lower for word in ["confirm", "ready", "delivery", "minutes", "hours"]):
+                order_details["confirmed"] = True
+                return {
+                    "conversation_complete": True,
+                    "next_message": "Thank you! I'll be waiting for the delivery.",
+                    "order_details": order_details
+                }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Can you please confirm that my order is accepted and will be delivered?",
+                    "order_details": order_details
+                }
+        
+        else:
+            # Default: End conversation
+            return {
+                "conversation_complete": True,
+                "next_message": "Thank you for your time.",
+                "order_details": order_details
+            }
+    
+    def _select_items_from_menu(self, user_input: str, menu_response: str) -> List[str]:
+        """Select items from menu based on user input."""
+        user_input_lower = user_input.lower()
+        selected_items = []
+        
+        # Simple item selection based on user input
+        if "pizza" in user_input_lower:
+            selected_items.append("Margherita Pizza")
+        elif "burger" in user_input_lower:
+            selected_items.append("Classic Burger")
+        elif "sushi" in user_input_lower:
+            selected_items.append("California Roll")
+        elif "pasta" in user_input_lower:
+            selected_items.append("Spaghetti Carbonara")
+        elif "salad" in user_input_lower:
+            selected_items.append("Caesar Salad")
+        elif "fries" in user_input_lower or "crispy" in user_input_lower:
+            selected_items.append("French Fries")
+        elif "milkshake" in user_input_lower:
+            selected_items.append("Milkshake")
+        else:
+            # Default fallback
+            selected_items.append("Margherita Pizza")
+        
+        return selected_items
+    
+    def _extract_price_from_response(self, response: str) -> float:
+        """Extract price from vendor response."""
+        import re
+        
+        # Look for price patterns like $12.99, 12.99, etc.
+        price_patterns = [
+            r'\$(\d+\.?\d*)',
+            r'(\d+\.?\d*)\s*dollars?',
+            r'price[:\s]*\$?(\d+\.?\d*)'
+        ]
+        
+        for pattern in price_patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                try:
+                    return float(match.group(1))
+                except ValueError:
+                    continue
+        
+        # Default price if no pattern matches
+        return 12.99
     
     async def _complete_scenario(self, context: ScenarioContext, order_result: Dict[str, Any]):
         """Complete the scenario and cleanup."""
