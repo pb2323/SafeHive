@@ -20,7 +20,7 @@ from .monitoring import (
 )
 from .user_twin import (
     DecisionStyle, PreferenceCategory, UserPreference, DecisionContext, Decision,
-    PreferenceManager, DecisionEngine, UserTwinAgent, create_user_twin_agent
+    PreferenceConflict, PreferenceManager, DecisionEngine, UserTwinAgent, create_user_twin_agent
 )
 from ..models.agent_models import AgentStatus
 
@@ -61,6 +61,7 @@ __all__ = [
     "UserPreference",
     "DecisionContext",
     "Decision",
+    "PreferenceConflict",
     "PreferenceManager",
     "DecisionEngine",
     "UserTwinAgent",

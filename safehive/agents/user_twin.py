@@ -149,15 +149,45 @@ class Decision:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+class PreferenceConflict:
+    """Represents a conflict between preferences."""
+    
+    def __init__(self, preference1: UserPreference, preference2: UserPreference, 
+                 conflict_type: str, severity: float = 0.5):
+        self.preference1 = preference1
+        self.preference2 = preference2
+        self.conflict_type = conflict_type  # "contradictory", "competing", "overlapping"
+        self.severity = severity  # 0.0 to 1.0
+        self.resolved = False
+        self.resolution_method: Optional[str] = None
+        self.created_at = datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "preference1_key": f"{self.preference1.category.value}:{self.preference1.key}",
+            "preference2_key": f"{self.preference2.category.value}:{self.preference2.key}",
+            "conflict_type": self.conflict_type,
+            "severity": self.severity,
+            "resolved": self.resolved,
+            "resolution_method": self.resolution_method,
+            "created_at": self.created_at.isoformat()
+        }
+
+
 class PreferenceManager:
-    """Manages user preferences and learning."""
+    """Manages user preferences and learning with advanced conflict resolution."""
     
     def __init__(self, storage_path: str = "/tmp/safehive_user_preferences"):
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self._preferences: Dict[str, UserPreference] = {}
         self._preference_cache: Dict[str, List[UserPreference]] = {}
+        self._conflicts: List[PreferenceConflict] = []
+        self._preference_history: List[Dict[str, Any]] = []
+        self._decay_rate = 0.01  # How much preferences decay per day
         self._load_preferences()
+        self._load_conflicts()
     
     def _load_preferences(self) -> None:
         """Load preferences from storage."""
@@ -172,6 +202,33 @@ class PreferenceManager:
             except Exception as e:
                 logger.error(f"Failed to load preferences: {e}")
     
+    def _load_conflicts(self) -> None:
+        """Load conflicts from storage."""
+        conflicts_file = self.storage_path / "conflicts.json"
+        if conflicts_file.exists():
+            try:
+                with open(conflicts_file, 'r') as f:
+                    data = json.load(f)
+                    for conflict_data in data:
+                        # Reconstruct conflicts from stored data
+                        # Note: This is simplified - in a full implementation, 
+                        # we'd need to reconstruct the actual preference objects
+                        logger.debug(f"Loaded conflict: {conflict_data.get('conflict_type', 'unknown')}")
+                logger.info(f"Loaded {len(data)} preference conflicts")
+            except Exception as e:
+                logger.error(f"Failed to load conflicts: {e}")
+    
+    def _save_conflicts(self) -> None:
+        """Save conflicts to storage."""
+        conflicts_file = self.storage_path / "conflicts.json"
+        try:
+            data = [conflict.to_dict() for conflict in self._conflicts]
+            with open(conflicts_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            logger.debug("Saved preference conflicts")
+        except Exception as e:
+            logger.error(f"Failed to save conflicts: {e}")
+    
     def _save_preferences(self) -> None:
         """Save preferences to storage."""
         prefs_file = self.storage_path / "preferences.json"
@@ -184,12 +241,126 @@ class PreferenceManager:
             logger.error(f"Failed to save preferences: {e}")
     
     def add_preference(self, preference: UserPreference) -> None:
-        """Add or update a preference."""
+        """Add or update a preference with conflict detection."""
         key = f"{preference.category.value}:{preference.key}"
+        
+        # Record preference history
+        self._preference_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "action": "add_or_update",
+            "preference_key": key,
+            "value": preference.value,
+            "strength": preference.strength
+        })
+        
+        # Check if this is an update to existing preference
+        existing_preference = self._preferences.get(key)
+        if existing_preference and existing_preference.value != preference.value:
+            # This is a conflicting update - create a conflict
+            conflict = PreferenceConflict(existing_preference, preference, "competing", 0.6)
+            self._conflicts.append(conflict)
+            logger.warning(f"Detected conflicting update for preference: {key}")
+            self._save_conflicts()
+        
+        # Check for other conflicts before adding
+        conflicts = self._detect_conflicts(preference)
+        if conflicts:
+            logger.warning(f"Detected {len(conflicts)} conflicts for preference: {key}")
+            for conflict in conflicts:
+                self._conflicts.append(conflict)
+            self._save_conflicts()
+        
         self._preferences[key] = preference
         self._invalidate_cache()
         self._save_preferences()
         logger.info(f"Added preference: {key}")
+    
+    def _detect_conflicts(self, new_preference: UserPreference) -> List[PreferenceConflict]:
+        """Detect conflicts with existing preferences."""
+        conflicts = []
+        
+        for existing_pref in self._preferences.values():
+            conflict = self._analyze_preference_conflict(new_preference, existing_pref)
+            if conflict:
+                conflicts.append(conflict)
+        
+        return conflicts
+    
+    def _analyze_preference_conflict(self, pref1: UserPreference, pref2: UserPreference) -> Optional[PreferenceConflict]:
+        """Analyze if two preferences conflict."""
+        # Same preference key - this is an update, not a conflict
+        pref1_key = f"{pref1.category.value}:{pref1.key}"
+        pref2_key = f"{pref2.category.value}:{pref2.key}"
+        if pref1_key == pref2_key:
+            return None
+        
+        # Check for contradictory values
+        if self._are_contradictory(pref1, pref2):
+            return PreferenceConflict(pref1, pref2, "contradictory", 0.8)
+        
+        # Check for competing preferences (same category, different values)
+        if pref1.category == pref2.category and pref1.value != pref2.value:
+            return PreferenceConflict(pref1, pref2, "competing", 0.6)
+        
+        # Check for overlapping contexts
+        if self._have_overlapping_contexts(pref1, pref2):
+            return PreferenceConflict(pref1, pref2, "overlapping", 0.4)
+        
+        return None
+    
+    def _are_contradictory(self, pref1: UserPreference, pref2: UserPreference) -> bool:
+        """Check if two preferences are contradictory."""
+        # Same category and key but different values should be considered competing
+        if pref1.category == pref2.category and pref1.key == pref2.key and pref1.value != pref2.value:
+            return True
+        
+        # Define contradictory pairs
+        contradictory_pairs = [
+            (("cost", "budget"), ("cost", "expensive")),
+            (("speed", "delivery_time"), ("quality", "fresh_ingredients")),
+            (("food", "dietary"), ("food", "cuisine")),
+        ]
+        
+        key1 = (pref1.category.value, pref1.key)
+        key2 = (pref2.category.value, pref2.key)
+        
+        for pair1, pair2 in contradictory_pairs:
+            if (key1 == pair1 and key2 == pair2) or (key1 == pair2 and key2 == pair1):
+                # Check if values are contradictory
+                if self._values_contradict(pref1.value, pref2.value):
+                    return True
+        
+        return False
+    
+    def _values_contradict(self, value1: Any, value2: Any) -> bool:
+        """Check if two values are contradictory."""
+        # Define contradictory value pairs
+        contradictory_values = [
+            ("cheap", "expensive"),
+            ("fast", "slow"),
+            ("healthy", "unhealthy"),
+            ("organic", "non-organic"),
+            ("vegetarian", "meat"),
+        ]
+        
+        for v1, v2 in contradictory_values:
+            if ((str(value1).lower() == v1 and str(value2).lower() == v2) or
+                (str(value1).lower() == v2 and str(value2).lower() == v1)):
+                return True
+        
+        return False
+    
+    def _have_overlapping_contexts(self, pref1: UserPreference, pref2: UserPreference) -> bool:
+        """Check if preferences have overlapping contexts."""
+        if not pref1.context or not pref2.context:
+            return False
+        
+        # Simple overlap detection - in a real implementation, this would be more sophisticated
+        context1_words = set(pref1.context.lower().split())
+        context2_words = set(pref2.context.lower().split())
+        
+        overlap = context1_words.intersection(context2_words)
+        return len(overlap) > 0
     
     def get_preference(self, category: PreferenceCategory, key: str) -> Optional[UserPreference]:
         """Get a specific preference."""
@@ -259,6 +430,166 @@ class PreferenceManager:
                 "recent_preferences": len([p for p in prefs if p.last_used > datetime.now() - timedelta(days=7)])
             }
         return summary
+    
+    def resolve_conflict(self, conflict: PreferenceConflict, resolution_method: str = "strength_based") -> bool:
+        """Resolve a preference conflict."""
+        if conflict.resolved:
+            return True
+        
+        # Check if this is an update conflict (same key, different value)
+        is_update_conflict = (conflict.preference1.category == conflict.preference2.category and 
+                            conflict.preference1.key == conflict.preference2.key)
+        
+        if is_update_conflict:
+            # For update conflicts, apply the resolution method to choose between old and new
+            if resolution_method == "strength_based":
+                # Keep the preference with higher strength
+                if conflict.preference1.strength > conflict.preference2.strength:
+                    # Keep old preference (preference1), replace new one (preference2)
+                    key = f"{conflict.preference2.category.value}:{conflict.preference2.key}"
+                    self._preferences[key] = conflict.preference1  # Restore the old preference
+                    conflict.resolution_method = "strength_based_keep_old_preference"
+                else:
+                    # Keep new preference (preference2), it's already stored
+                    conflict.resolution_method = "strength_based_keep_new_preference"
+            elif resolution_method == "recent_based":
+                # Keep the more recently used preference
+                if conflict.preference1.last_used > conflict.preference2.last_used:
+                    # Keep old preference (preference1)
+                    key = f"{conflict.preference2.category.value}:{conflict.preference2.key}"
+                    self._preferences[key] = conflict.preference1  # Restore the old preference
+                    conflict.resolution_method = "recent_based_keep_old_preference"
+                else:
+                    # Keep new preference (preference2)
+                    conflict.resolution_method = "recent_based_keep_new_preference"
+            else:
+                # Default: keep the newer preference
+                conflict.resolution_method = f"{resolution_method}_keep_newer_preference"
+        else:
+            # For different preference conflicts, use the specified resolution method
+            if resolution_method == "strength_based":
+                # Keep the preference with higher strength
+                if conflict.preference1.strength > conflict.preference2.strength:
+                    self._remove_preference(conflict.preference2)
+                    conflict.resolution_method = "strength_based_keep_preference1"
+                else:
+                    self._remove_preference(conflict.preference1)
+                    conflict.resolution_method = "strength_based_keep_preference2"
+            
+            elif resolution_method == "recent_based":
+                # Keep the more recently used preference
+                if conflict.preference1.last_used > conflict.preference2.last_used:
+                    self._remove_preference(conflict.preference2)
+                    conflict.resolution_method = "recent_based_keep_preference1"
+                else:
+                    self._remove_preference(conflict.preference1)
+                    conflict.resolution_method = "recent_based_keep_preference2"
+            
+            elif resolution_method == "context_based":
+                # Keep preference with more specific context
+                if len(conflict.preference1.context) > len(conflict.preference2.context):
+                    self._remove_preference(conflict.preference2)
+                    conflict.resolution_method = "context_based_keep_preference1"
+                else:
+                    self._remove_preference(conflict.preference1)
+                    conflict.resolution_method = "context_based_keep_preference2"
+            
+            else:
+                # Manual resolution - just mark as resolved
+                conflict.resolution_method = "manual"
+        
+        conflict.resolved = True
+        self._save_conflicts()
+        logger.info(f"Resolved conflict using method: {conflict.resolution_method}")
+        return True
+    
+    def _remove_preference(self, preference: UserPreference) -> None:
+        """Remove a preference."""
+        key = f"{preference.category.value}:{preference.key}"
+        if key in self._preferences:
+            del self._preferences[key]
+            self._invalidate_cache()
+            self._save_preferences()
+            logger.info(f"Removed preference: {key}")
+    
+    def get_active_conflicts(self) -> List[PreferenceConflict]:
+        """Get all unresolved conflicts."""
+        return [conflict for conflict in self._conflicts if not conflict.resolved]
+    
+    def auto_resolve_conflicts(self) -> int:
+        """Automatically resolve conflicts using intelligent methods."""
+        resolved_count = 0
+        active_conflicts = self.get_active_conflicts()
+        
+        for conflict in active_conflicts:
+            # Choose resolution method based on conflict type
+            if conflict.conflict_type == "contradictory":
+                self.resolve_conflict(conflict, "strength_based")
+            elif conflict.conflict_type == "competing":
+                self.resolve_conflict(conflict, "recent_based")
+            elif conflict.conflict_type == "overlapping":
+                self.resolve_conflict(conflict, "context_based")
+            else:
+                self.resolve_conflict(conflict, "strength_based")
+            
+            resolved_count += 1
+        
+        logger.info(f"Auto-resolved {resolved_count} conflicts")
+        return resolved_count
+    
+    def apply_preference_decay(self) -> None:
+        """Apply temporal decay to preferences."""
+        current_time = datetime.now()
+        decayed_count = 0
+        
+        for preference in self._preferences.values():
+            # Calculate days since last used
+            days_since_use = (current_time - preference.last_used).days
+            
+            if days_since_use > 0:
+                # Apply decay
+                decay_amount = days_since_use * self._decay_rate
+                new_strength = max(0.0, preference.strength - decay_amount)
+                
+                if new_strength != preference.strength:
+                    preference.strength = new_strength
+                    decayed_count += 1
+        
+        if decayed_count > 0:
+            self._save_preferences()
+            logger.info(f"Applied decay to {decayed_count} preferences")
+    
+    def get_preference_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get preference change history."""
+        return self._preference_history[-limit:] if self._preference_history else []
+    
+    def validate_preference_consistency(self) -> Dict[str, Any]:
+        """Validate preference consistency and return report."""
+        report = {
+            "total_preferences": len(self._preferences),
+            "active_conflicts": len(self.get_active_conflicts()),
+            "inconsistencies": [],
+            "warnings": [],
+            "suggestions": []
+        }
+        
+        # Check for low-strength preferences
+        low_strength_prefs = [p for p in self._preferences.values() if p.strength < 0.3]
+        if low_strength_prefs:
+            report["warnings"].append(f"{len(low_strength_prefs)} preferences have low strength (< 0.3)")
+        
+        # Check for unused preferences
+        unused_prefs = [p for p in self._preferences.values() 
+                       if (datetime.now() - p.last_used).days > 30]
+        if unused_prefs:
+            report["suggestions"].append(f"{len(unused_prefs)} preferences haven't been used in 30+ days")
+        
+        # Check for conflicting preferences
+        active_conflicts = self.get_active_conflicts()
+        if active_conflicts:
+            report["inconsistencies"].append(f"{len(active_conflicts)} unresolved conflicts")
+        
+        return report
 
 
 class DecisionEngine:
@@ -712,8 +1043,52 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
             "preference_summary": self.preference_manager.get_preference_summary(),
             "decision_patterns": self.get_decision_patterns(),
             "recent_decisions": len(self.get_decision_history()),
-            "behavior_patterns": self.behavior_patterns
+            "behavior_patterns": self.behavior_patterns,
+            "preference_consistency": self.preference_manager.validate_preference_consistency()
         }
+    
+    def get_preference_conflicts(self) -> List[PreferenceConflict]:
+        """Get all active preference conflicts."""
+        return self.preference_manager.get_active_conflicts()
+    
+    def resolve_preference_conflicts(self, auto_resolve: bool = True) -> int:
+        """Resolve preference conflicts."""
+        if auto_resolve:
+            return self.preference_manager.auto_resolve_conflicts()
+        else:
+            # Manual resolution - return conflicts for user to resolve
+            conflicts = self.preference_manager.get_active_conflicts()
+            return len(conflicts)
+    
+    def apply_preference_decay(self) -> None:
+        """Apply temporal decay to preferences."""
+        self.preference_manager.apply_preference_decay()
+    
+    def get_preference_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get preference change history."""
+        return self.preference_manager.get_preference_history(limit)
+    
+    def validate_preferences(self) -> Dict[str, Any]:
+        """Validate preference consistency and return detailed report."""
+        return self.preference_manager.validate_preference_consistency()
+    
+    def remove_preference(self, category: PreferenceCategory, key: str) -> bool:
+        """Remove a specific preference."""
+        preference = self.preference_manager.get_preference(category, key)
+        if preference:
+            self.preference_manager._remove_preference(preference)
+            return True
+        return False
+    
+    def update_preference_context(self, category: PreferenceCategory, key: str, 
+                                new_context: str) -> bool:
+        """Update the context of a preference."""
+        preference = self.preference_manager.get_preference(category, key)
+        if preference:
+            preference.context = new_context
+            self.preference_manager._save_preferences()
+            return True
+        return False
     
     def _update_behavior_patterns(self, decision: Decision) -> None:
         """Update behavior patterns based on decisions."""
