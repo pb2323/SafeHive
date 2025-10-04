@@ -15,6 +15,7 @@ from enum import Enum
 from safehive.utils.logger import get_logger
 from safehive.utils.metrics import record_metric, MetricType, record_event
 from safehive.sandbox.sandbox_manager import SandboxSession
+from safehive.agents.vendors import VendorResponse
 
 logger = get_logger(__name__)
 
@@ -663,16 +664,24 @@ Based on the user's request and your preferences, select the most appropriate re
             
             self.logger.info(f"🍽️ Sending order request to {restaurant['name']} vendor: {message}")
             
-            # Use the vendor agent's process_order_request method
-            order_request = {
-                "message": message,
+            # Use the vendor agent's generate_response method for menu inquiries
+            context_data = {
                 "context": "order_inquiry",
                 "user_preferences": context.data.get("user_preferences", {}),
                 "restaurant": restaurant
             }
-            vendor_response = vendor_agent.process_order_request(order_request)
+            vendor_response_text = vendor_agent.generate_response(message, context_data)
             
-            self.logger.info(f"🍽️ {restaurant['name']} vendor response: {vendor_response.reason if hasattr(vendor_response, 'reason') else str(vendor_response)}")
+            self.logger.info(f"🍽️ {restaurant['name']} vendor response: {vendor_response_text}")
+            
+            # Create a structured response for compatibility with the rest of the system
+            vendor_response = VendorResponse(
+                action="respond",
+                reason=vendor_response_text,
+                details={"response_type": "menu_inquiry", "restaurant": restaurant["name"]},
+                confidence=0.9,
+                vendor_type=restaurant.get("vendor_type", "honest")
+            )
             
             # Create a structured response from VendorResponse object
             structured_response = {
