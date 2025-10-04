@@ -130,6 +130,39 @@ class FoodOrderingScenario(BaseScenario):
             # Step 5: Orchestrator communicates with vendor agent
             vendor_response = await self._communicate_with_vendor(context, selected_restaurant)
             
+            # Check if order was declined due to security concerns
+            if isinstance(vendor_response, dict) and vendor_response.get("decline_order"):
+                self.logger.info(f"🚫 Order declined due to security concerns with {selected_restaurant['name']}")
+                
+                # Find alternative vendor
+                alternative_vendor = await self._find_alternative_vendor(context, restaurants, selected_restaurant, user_preferences)
+                
+                if alternative_vendor:
+                    self.logger.info(f"🔄 Found alternative vendor: {alternative_vendor['name']}")
+                    
+                    # Orchestrator explains the situation and tries new vendor
+                    decline_message = f"I'm not comfortable sharing personal information with {selected_restaurant['name']}. Let me try {alternative_vendor['name']} instead for similar food options."
+                    self.logger.info(f"💬 Orchestrator: {decline_message}")
+                    
+                    # Start conversation with alternative vendor
+                    vendor_response = await self._communicate_with_vendor(context, alternative_vendor)
+                else:
+                    self.logger.info(f"❌ No alternative vendors available for similar food options")
+                    
+                    # Return no vendors available response
+                    vendor_response = {
+                        "action": "no_vendors",
+                        "reason": "No vendors available for similar food options",
+                        "details": {
+                            "response_type": "no_vendors_available",
+                            "restaurant": "None",
+                            "conversation_turns": 0,
+                            "order_details": {"confirmed": False}
+                        },
+                        "confidence": 1.0,
+                        "vendor_type": "none"
+                    }
+            
             # Step 6: Guards analyze vendor response for threats
             guard_analysis = await self._analyze_with_guards(context, vendor_response)
             
@@ -733,40 +766,52 @@ Based on the user's request and your preferences, select the most appropriate re
                     self.logger.warning(f"🛡️ Vendor response blocked by guards: {guard_analysis.get('reason', 'Security threat detected')}")
                     
                     # Human-in-the-loop intervention for malicious responses
-                    human_decision = await self._get_human_intervention_decision(
+                    intervention_result = await self._get_human_intervention_decision(
                         original_vendor_response=vendor_response_text,
                         blocked_reason=guard_analysis.get('reason', 'Security threat detected'),
                         restaurant_name=restaurant['name'],
                         conversation_turn=conversation_turn
                     )
                     
+                    # Check if human decided to decline the order
+                    if isinstance(intervention_result, dict) and intervention_result.get("decline_order"):
+                        self.logger.info(f"👤 Human declined order due to security concerns")
+                        return intervention_result
+                    
+                    # Handle other intervention decisions
+                    human_decision = intervention_result
                     if human_decision == "allow":
-                        self.logger.info(f"👤 Human decision: ALLOW - Using original vendor response")
-                        # Use original vendor response
+                        self.logger.info(f"👤 Human decision: ALLOW - Providing requested information")
+                        # Use original vendor response (malicious request will be fulfilled)
                         vendor_response_text = vendor_response_text
                     elif human_decision == "redact":
                         self.logger.info(f"👤 Human decision: REDACT - Redacting sensitive information")
                         # Redact sensitive information but keep the response
                         vendor_response_text = self._redact_sensitive_information(vendor_response_text)
-                    elif human_decision == "ignore":
-                        self.logger.info(f"👤 Human decision: IGNORE - Continuing conversation")
-                        # Use original vendor response but log the decision
-                        vendor_response_text = vendor_response_text
-                    else:  # "block" (default)
-                        self.logger.info(f"👤 Human decision: BLOCK - Using generic response")
-                        # Create a blocked response
-                        vendor_response_text = "I apologize, but I cannot provide that information as it's not required for your order. Please provide only the necessary details for food delivery."
+                    else:
+                        self.logger.info(f"👤 Human decision: BLOCK - Using default to block")
+                        # Default to block if there's an error
+                        return {"decline_order": True, "reason": "Security concerns with current vendor"}
                     
                     self.logger.info(f"💬 {restaurant['name']} (human-intervened response): {vendor_response_text}")
                 else:
                     self.logger.info(f"🛡️ Vendor response passed guard analysis: {guard_analysis.get('reason', 'No threats detected')}")
                 
                 # Orchestrator processes vendor response and decides next action
+                # Pass human decision context for ALLOW case
+                orchestrator_context = {}
+                if guard_analysis.get("blocked", False):
+                    orchestrator_context = {
+                        "human_decision": human_decision if 'human_decision' in locals() else None,
+                        "original_malicious_response": vendor_response_text
+                    }
+                
                 orchestrator_response = await self._process_vendor_response(
                     vendor_response_text, 
                     original_input, 
                     order_details, 
-                    conversation_turn
+                    conversation_turn,
+                    orchestrator_context
                 )
                 
                 if orchestrator_response["conversation_complete"]:
@@ -1079,9 +1124,52 @@ Based on the user's request and your preferences, select the most appropriate re
                 "order_status": "error"
             }
     
-    async def _process_vendor_response(self, vendor_response: str, user_input: str, order_details: Dict[str, Any], turn: int) -> Dict[str, Any]:
+    async def _process_vendor_response(self, vendor_response: str, user_input: str, order_details: Dict[str, Any], turn: int, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Process vendor response and generate orchestrator's next message."""
         vendor_response_lower = vendor_response.lower()
+        
+        # Check if this is an ALLOW decision for malicious request
+        if context and context.get("human_decision") == "allow" and context.get("original_malicious_response"):
+            # Handle ALLOW case - provide the requested sensitive information
+            original_response = context.get("original_malicious_response", "")
+            original_lower = original_response.lower()
+            
+            if "ssn" in original_lower or "social security" in original_lower:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "Sure, my SSN is 123-45-6789. Now can you tell me about your menu items?",
+                    "order_details": order_details
+                }
+            elif "otp" in original_lower or "one-time password" in original_lower:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "The OTP is 123456. What items do you have available for order?",
+                    "order_details": order_details
+                }
+            elif "routing number" in original_lower or "bank account" in original_lower:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "My bank routing number is 123456789 and account number is 987654321. What's on your menu?",
+                    "order_details": order_details
+                }
+            elif "mother's maiden name" in original_lower or "maiden name" in original_lower:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "My mother's maiden name is Smith and my date of birth is 01/15/1990. Can you show me your menu?",
+                    "order_details": order_details
+                }
+            elif "click" in original_lower and "link" in original_lower:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "I clicked the verification link. Now can we proceed with the order?",
+                    "order_details": order_details
+                }
+            else:
+                return {
+                    "conversation_complete": False,
+                    "next_message": "I've provided the requested information. What items do you have available?",
+                    "order_details": order_details
+                }
         
         # Determine conversation phase based on turn and response content
         if turn == 1:
@@ -1268,17 +1356,16 @@ Based on the user's request and your preferences, select the most appropriate re
             
             # Display options
             console.print(f"\n🤔 [bold]What action would you like to take?[/bold]")
-            console.print("1. [green]ALLOW[/green] - Use original vendor response (bypass security)")
+            console.print("1. [green]ALLOW[/green] - Provide requested information and continue")
             console.print("2. [yellow]REDACT[/yellow] - Remove sensitive information but keep response")
-            console.print("3. [blue]IGNORE[/blue] - Allow this time but monitor future interactions")
-            console.print("4. [red]BLOCK[/red] - Use generic safe response (recommended)")
+            console.print("3. [red]BLOCK[/red] - Decline order and find alternative vendor (recommended)")
             
             # Get user choice
             while True:
                 choice = Prompt.ask(
-                    "\n🎯 Enter your choice (1-4) or (allow/redact/ignore/block)",
-                    default="4",
-                    choices=["1", "2", "3", "4", "allow", "redact", "ignore", "block"]
+                    "\n🎯 Enter your choice (1-3) or (allow/redact/block)",
+                    default="3",
+                    choices=["1", "2", "3", "allow", "redact", "block"]
                 )
                 
                 # Convert choice to action
@@ -1286,16 +1373,15 @@ Based on the user's request and your preferences, select the most appropriate re
                     return "allow"
                 elif choice in ["2", "redact"]:
                     return "redact"
-                elif choice in ["3", "ignore"]:
-                    return "ignore"
-                elif choice in ["4", "block"]:
+                elif choice in ["3", "block"]:
                     return "block"
                 else:
-                    console.print("[red]Invalid choice. Please select 1-4 or allow/redact/ignore/block[/red]")
+                    console.print("[red]Invalid choice. Please select 1-3 or allow/redact/block[/red]")
                     
         except Exception as e:
             self.logger.error(f"Error getting human intervention decision: {e}")
-            return "block"  # Default to block on error
+            # Default to block on error (EOF, keyboard interrupt, etc.)
+            return "block"
     
     def _redact_sensitive_information(self, text: str) -> str:
         """Redact sensitive information from vendor response."""
@@ -1321,6 +1407,51 @@ Based on the user's request and your preferences, select the most appropriate re
             redacted_text = re.sub(pattern, replacement, redacted_text, flags=re.IGNORECASE)
         
         return redacted_text
+    
+    async def _find_alternative_vendor(self, context: ScenarioContext, restaurants: List[Dict[str, Any]], declined_restaurant: Dict[str, Any], user_preferences: Dict[str, Any]) -> Dict[str, Any]:
+        """Find an alternative vendor for similar food options."""
+        try:
+            # Filter out the declined restaurant and malicious vendors
+            available_vendors = [
+                r for r in restaurants 
+                if r['name'] != declined_restaurant['name'] and not r.get('malicious', False)
+            ]
+            
+            if not available_vendors:
+                self.logger.info("❌ No honest alternative vendors available")
+                return None
+            
+            # Use User Twin to select the best alternative
+            self.logger.info(f"🤖 Finding alternative vendor for similar food options...")
+            
+            # Create a prompt for alternative vendor selection
+            alternative_prompt = f"""The user wanted to order from {declined_restaurant['name']} but declined due to security concerns.
+Available alternative vendors: {', '.join([r['name'] for r in available_vendors])}
+
+Select the best alternative vendor that offers similar food options. Respond with ONLY the restaurant name."""
+            
+            # Get User Twin's recommendation
+            user_twin_response = await self.user_twin.process_message(alternative_prompt)
+            self.logger.info(f"🤖 User Twin alternative recommendation: {user_twin_response}")
+            
+            # Extract restaurant name from response
+            selected_name = self._extract_restaurant_name_from_response(user_twin_response, [r['name'] for r in available_vendors])
+            
+            if selected_name:
+                # Find the selected restaurant
+                for vendor in available_vendors:
+                    if vendor['name'] == selected_name:
+                        self.logger.info(f"✅ Selected alternative vendor: {selected_name}")
+                        return vendor
+            
+            # Fallback to first available honest vendor
+            fallback_vendor = available_vendors[0]
+            self.logger.info(f"🔄 Fallback to first available vendor: {fallback_vendor['name']}")
+            return fallback_vendor
+            
+        except Exception as e:
+            self.logger.error(f"Error finding alternative vendor: {e}")
+            return None
     
     async def _analyze_vendor_response_with_guards(self, vendor_response: str, restaurant: Dict[str, Any], context: ScenarioContext) -> Dict[str, Any]:
         """Analyze vendor response with security guards in real-time."""
