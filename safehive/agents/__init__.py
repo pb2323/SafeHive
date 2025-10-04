@@ -36,6 +36,14 @@ from .vendor_communication import (
     CommunicationIntent, MessageType, CommunicationStatus, CommunicationMessage,
     CommunicationSession, IntentClassification, VendorCommunicationInterface
 )
+from .order_validation import (
+    ValidationStatus, ValidationSeverity, ValidationType, ValidationRule,
+    ValidationResult, ValidationReport, OrderValidationEngine
+)
+from .order_confirmation import (
+    ConfirmationStatus, ApprovalType, ApprovalResult, ConfirmationStep,
+    ApprovalRequirement, ConfirmationWorkflow, ConfirmationSession, OrderConfirmationManager
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -102,5 +110,20 @@ __all__ = [
     "CommunicationMessage",
     "CommunicationSession",
     "IntentClassification",
-    "VendorCommunicationInterface"
+    "VendorCommunicationInterface",
+    "ValidationStatus",
+    "ValidationSeverity",
+    "ValidationType",
+    "ValidationRule",
+    "ValidationResult",
+    "ValidationReport",
+    "OrderValidationEngine",
+    "ConfirmationStatus",
+    "ApprovalType",
+    "ApprovalResult",
+    "ConfirmationStep",
+    "ApprovalRequirement",
+    "ConfirmationWorkflow",
+    "ConfirmationSession",
+    "OrderConfirmationManager"
 ]

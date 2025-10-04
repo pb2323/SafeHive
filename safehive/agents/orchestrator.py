@@ -49,6 +49,14 @@ from .vendor_communication import (
     VendorCommunicationInterface, CommunicationSession, CommunicationMessage,
     CommunicationIntent, MessageType, CommunicationStatus, IntentClassification
 )
+from .order_validation import (
+    OrderValidationEngine, ValidationReport, ValidationStatus, ValidationSeverity,
+    ValidationRule, ValidationResult, ValidationType
+)
+from .order_confirmation import (
+    OrderConfirmationManager, ConfirmationSession, ConfirmationStatus, ConfirmationWorkflow,
+    ApprovalType, ApprovalResult
+)
 
 try:
     from .memory import SafeHiveMemoryManager, Conversation, AgentMessage
@@ -382,6 +390,8 @@ class OrchestratorAgent(BaseAgent):
         self.vendor_manager = VendorManager()
         self.intelligent_order_manager = IntelligentOrderManager()
         self.vendor_communication = VendorCommunicationInterface()
+        self.order_validation = OrderValidationEngine()
+        self.order_confirmation = OrderConfirmationManager()
         self.user_twin_agent: Optional[UserTwinAgent] = None
         
         # Initialize LangChain components
@@ -909,6 +919,148 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
         """Get vendor communication statistics."""
         return self.vendor_communication.get_communication_statistics()
     
+    async def validate_order_comprehensive(self, order_id: str) -> Optional[ValidationReport]:
+        """Perform comprehensive order validation."""
+        order = self.order_manager.get_order(order_id)
+        if not order:
+            logger.error(f"Order not found: {order_id}")
+            return None
+        
+        logger.info(f"Performing comprehensive validation for order: {order_id}")
+        
+        # Perform validation
+        validation_report = await self.order_validation.validate_order(
+            order, self.user_twin_agent
+        )
+        
+        return validation_report
+    
+    async def confirm_order_with_workflow(self, order_id: str) -> Optional[ConfirmationSession]:
+        """Confirm an order using the confirmation workflow."""
+        order = self.order_manager.get_order(order_id)
+        if not order:
+            logger.error(f"Order not found: {order_id}")
+            return None
+        
+        logger.info(f"Starting confirmation workflow for order: {order_id}")
+        
+        # First, validate the order
+        validation_report = await self.order_validation.validate_order(
+            order, self.user_twin_agent
+        )
+        
+        # Check if validation passed
+        if validation_report.overall_status == ValidationStatus.FAILED:
+            logger.warning(f"Order validation failed for {order_id}")
+            return None
+        
+        # Get vendor communication session if available
+        vendor_session = None
+        active_sessions = self.vendor_communication.get_active_sessions()
+        for session in active_sessions:
+            if session.vendor_id == order.vendor.vendor_id:
+                vendor_session = session
+                break
+        
+        # Start confirmation workflow
+        confirmation_session = await self.order_confirmation.start_confirmation_workflow(
+            order, validation_report, self.user_twin_agent, vendor_session
+        )
+        
+        # Update order status based on confirmation result
+        if confirmation_session.status == ConfirmationStatus.APPROVED:
+            await self.update_order_status(order_id, OrderStatus.CONFIRMED)
+            logger.info(f"Order {order_id} confirmed successfully")
+        elif confirmation_session.status == ConfirmationStatus.REJECTED:
+            await self.update_order_status(order_id, OrderStatus.CANCELLED)
+            logger.info(f"Order {order_id} was rejected")
+        
+        return confirmation_session
+    
+    async def process_order_with_full_workflow(self, user_id: str, vendor_id: str, 
+                                             items: List[Dict[str, Any]],
+                                             order_type: OrderType = OrderType.DELIVERY,
+                                             delivery_address: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Process an order through the complete workflow: creation, optimization, validation, and confirmation."""
+        logger.info(f"Processing complete order workflow for user: {user_id}, vendor: {vendor_id}")
+        
+        # Step 1: Create the order
+        order = await self.create_order(
+            user_id, vendor_id, items, order_type, delivery_address,
+            enable_intelligent_optimization=True
+        )
+        
+        if not order:
+            logger.error("Failed to create order")
+            return None
+        
+        # Step 2: Validate the order
+        validation_report = await self.order_validation.validate_order(
+            order, self.user_twin_agent
+        )
+        
+        if validation_report.overall_status == ValidationStatus.FAILED:
+            logger.warning(f"Order validation failed: {order.order_id}")
+            await self.update_order_status(order.order_id, OrderStatus.CANCELLED)
+            return {
+                "order": order,
+                "validation_report": validation_report,
+                "confirmation_session": None,
+                "workflow_status": "validation_failed"
+            }
+        
+        # Step 3: Start confirmation workflow
+        confirmation_session = await self.order_confirmation.start_confirmation_workflow(
+            order, validation_report, self.user_twin_agent
+        )
+        
+        # Step 4: Update order status based on confirmation
+        if confirmation_session.status == ConfirmationStatus.APPROVED:
+            await self.update_order_status(order.order_id, OrderStatus.CONFIRMED)
+            workflow_status = "confirmed"
+        elif confirmation_session.status == ConfirmationStatus.REJECTED:
+            await self.update_order_status(order.order_id, OrderStatus.CANCELLED)
+            workflow_status = "rejected"
+        else:
+            workflow_status = "pending_confirmation"
+        
+        return {
+            "order": order,
+            "validation_report": validation_report,
+            "confirmation_session": confirmation_session,
+            "workflow_status": workflow_status
+        }
+    
+    def add_validation_rule(self, rule: ValidationRule) -> None:
+        """Add a validation rule to the order validation engine."""
+        self.order_validation.add_validation_rule(rule)
+        logger.info(f"Added validation rule: {rule.name}")
+    
+    def update_validation_rule(self, rule_id: str, **updates) -> bool:
+        """Update an existing validation rule."""
+        return self.order_validation.update_validation_rule(rule_id, **updates)
+    
+    def add_confirmation_workflow(self, workflow: ConfirmationWorkflow) -> None:
+        """Add a confirmation workflow to the order confirmation manager."""
+        self.order_confirmation.add_confirmation_workflow(workflow)
+        logger.info(f"Added confirmation workflow: {workflow.name}")
+    
+    def get_validation_statistics(self) -> Dict[str, Any]:
+        """Get order validation statistics."""
+        return self.order_validation.get_validation_statistics()
+    
+    def get_confirmation_statistics(self) -> Dict[str, Any]:
+        """Get order confirmation statistics."""
+        return self.order_confirmation.get_confirmation_statistics()
+    
+    def get_validation_sessions(self) -> List[ValidationReport]:
+        """Get all validation reports."""
+        return self.order_validation.validation_history
+    
+    def get_confirmation_sessions(self) -> List[ConfirmationSession]:
+        """Get all confirmation sessions."""
+        return self.order_confirmation.get_active_sessions() + self.order_confirmation.confirmation_history
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get agent metrics."""
         base_metrics = super().get_metrics()
@@ -919,7 +1071,9 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "total_vendors": len(self.vendor_manager._vendors),
             "available_vendors": len(self.vendor_manager.get_all_vendors()),
             "intelligent_optimizations": self.intelligent_order_manager.get_optimization_statistics(),
-            "vendor_communications": self.vendor_communication.get_communication_statistics()
+            "vendor_communications": self.vendor_communication.get_communication_statistics(),
+            "order_validations": self.order_validation.get_validation_statistics(),
+            "order_confirmations": self.order_confirmation.get_confirmation_statistics()
         }
         
         return {**base_metrics, **orchestrator_metrics}
