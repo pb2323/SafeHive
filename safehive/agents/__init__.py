@@ -22,6 +22,36 @@ from .user_twin import (
     DecisionStyle, PreferenceCategory, UserPreference, DecisionContext, Decision,
     PreferenceConflict, PreferenceManager, DecisionEngine, UserTwinAgent, create_user_twin_agent
 )
+from .order_models import (
+    OrderStatus, OrderType, PaymentStatus, OrderItem, Vendor, Order
+)
+from .orchestrator import (
+    OrderManager, VendorManager, OrchestratorAgent, create_orchestrator_agent
+)
+from .intelligent_order_manager import (
+    ConstraintType, ReasoningType, OrderConstraint, OrderReasoning,
+    OrderOptimizationResult, IntelligentOrderManager
+)
+from .vendor_communication import (
+    CommunicationIntent, MessageType, CommunicationStatus, CommunicationMessage,
+    CommunicationSession, IntentClassification, VendorCommunicationInterface
+)
+from .order_validation import (
+    ValidationStatus, ValidationSeverity, ValidationType, ValidationRule,
+    ValidationResult, ValidationReport, OrderValidationEngine
+)
+from .order_confirmation import (
+    ConfirmationStatus, ApprovalType, ApprovalResult, ConfirmationStep,
+    ApprovalRequirement, ConfirmationWorkflow, ConfirmationSession, OrderConfirmationManager
+)
+from .error_handling import (
+    ErrorSeverity, ErrorCategory, RetryStrategy, RecoveryAction,
+    ErrorContext, ErrorRecord, RetryConfig, LearningInsight, ErrorHandler, with_error_handling
+)
+from .conversation_management import (
+    ConversationState, ConversationType, TurnType, ContextType,
+    ConversationTurn, ConversationContext, ConversationSession, ConversationFlow, ConversationManager
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -65,5 +95,62 @@ __all__ = [
     "PreferenceManager",
     "DecisionEngine",
     "UserTwinAgent",
-    "create_user_twin_agent"
+    "create_user_twin_agent",
+    "OrderStatus",
+    "OrderType", 
+    "PaymentStatus",
+    "OrderItem",
+    "Vendor",
+    "Order",
+    "OrderManager",
+    "VendorManager",
+    "OrchestratorAgent",
+    "create_orchestrator_agent",
+    "ConstraintType",
+    "ReasoningType",
+    "OrderConstraint",
+    "OrderReasoning",
+    "OrderOptimizationResult",
+    "IntelligentOrderManager",
+    "CommunicationIntent",
+    "MessageType",
+    "CommunicationStatus",
+    "CommunicationMessage",
+    "CommunicationSession",
+    "IntentClassification",
+    "VendorCommunicationInterface",
+    "ValidationStatus",
+    "ValidationSeverity",
+    "ValidationType",
+    "ValidationRule",
+    "ValidationResult",
+    "ValidationReport",
+    "OrderValidationEngine",
+    "ConfirmationStatus",
+    "ApprovalType",
+    "ApprovalResult",
+    "ConfirmationStep",
+    "ApprovalRequirement",
+    "ConfirmationWorkflow",
+    "ConfirmationSession",
+    "OrderConfirmationManager",
+    "ErrorSeverity",
+    "ErrorCategory",
+    "RetryStrategy",
+    "RecoveryAction",
+    "ErrorContext",
+    "ErrorRecord",
+    "RetryConfig",
+    "LearningInsight",
+    "ErrorHandler",
+    "with_error_handling",
+    "ConversationState",
+    "ConversationType",
+    "TurnType",
+    "ContextType",
+    "ConversationTurn",
+    "ConversationContext",
+    "ConversationSession",
+    "ConversationFlow",
+    "ConversationManager"
 ]
