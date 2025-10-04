@@ -12,6 +12,12 @@ from .configuration import (
     ConfigurationManager, AgentConfiguration, PersonalityProfile, ConfigurationTemplate,
     PersonalityTrait, ResponseStyle, ConfigurationScope, get_configuration_manager, create_configuration_manager
 )
+from .monitoring import (
+    HealthStatus, AlertLevel, HealthCheck, AgentHealthReport, PerformanceMetrics,
+    HealthCheckProvider, BasicHealthCheckProvider, PerformanceHealthCheckProvider,
+    ResourceHealthCheckProvider, Alert, AlertManager, AgentMonitor,
+    get_agent_monitor, create_agent_monitor
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -20,7 +26,7 @@ __all__ = [
     "AgentStatus",
     "StateManager",
     "AgentStateSnapshot",
-    "StateMetadata", 
+    "StateMetadata",
     "create_state_manager",
     "get_state_manager",
     "ConfigurationManager",
@@ -31,5 +37,19 @@ __all__ = [
     "ResponseStyle",
     "ConfigurationScope",
     "get_configuration_manager",
-    "create_configuration_manager"
+    "create_configuration_manager",
+    "HealthStatus",
+    "AlertLevel",
+    "HealthCheck",
+    "AgentHealthReport",
+    "PerformanceMetrics",
+    "HealthCheckProvider",
+    "BasicHealthCheckProvider",
+    "PerformanceHealthCheckProvider",
+    "ResourceHealthCheckProvider",
+    "Alert",
+    "AlertManager",
+    "AgentMonitor",
+    "get_agent_monitor",
+    "create_agent_monitor"
 ]
