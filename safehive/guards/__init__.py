@@ -14,6 +14,10 @@ from .task_navigator import (
     NavigationAction, TaskConstraint, TaskDefinition, TaskExecution,
     TaskDeviation, NavigationResult
 )
+from .prompt_sanitizer import (
+    PromptSanitizer, ThreatType, ThreatSeverity, SanitizationAction,
+    ThreatDetection, SanitizationResult, SanitizationRule
+)
 
 __all__ = [
     "PrivacySentry",
@@ -35,5 +39,12 @@ __all__ = [
     "TaskDefinition",
     "TaskExecution",
     "TaskDeviation",
-    "NavigationResult"
+    "NavigationResult",
+    "PromptSanitizer",
+    "ThreatType",
+    "ThreatSeverity",
+    "SanitizationAction",
+    "ThreatDetection",
+    "SanitizationResult",
+    "SanitizationRule"
 ]

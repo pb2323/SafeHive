@@ -84,8 +84,8 @@
 - [x] 5.1 Implement `guards/privacy_sentry.py` to detect and prevent PII over-sharing in agent communications
 - [x] 5.2 Create PII detection patterns for credit cards, addresses, and health data in natural language
 - [x] 5.3 Implement `guards/task_navigator.py` to enforce original task constraints with agent reasoning
-  - [ ] 5.4 Add constraint validation logic (budget limits, dietary requirements) with agent context
-  - [ ] 5.5 Implement `guards/prompt_sanitizer.py` to filter malicious vendor inputs and agent communications
+- [x] 5.4 Add constraint validation logic (budget limits, dietary requirements) with agent context
+- [x] 5.5 Implement `guards/prompt_sanitizer.py` to filter malicious vendor inputs and agent communications
   - [ ] 5.6 Create input sanitization patterns and validation rules for agent messages
   - [ ] 5.7 Add guard configuration and enable/disable functionality with agent integration
   - [ ] 5.8 Implement guard response formatting and logging with agent context
