@@ -111,18 +111,18 @@ class AIClient:
             raise
     
     def _setup_chat_model(self) -> None:
-        """Setup the LangChain chat model."""
+        """Setup the LangChain chat model with fallback to direct Ollama client."""
+        # Force fallback to direct Ollama client due to LangChain connection issues
+        logger.warning("Skipping LangChain ChatOllama due to known connection issues")
+        logger.info("Using direct Ollama client")
+        
         try:
-            self.chat_model = ChatOllama(
-                model=self.model_name,
-                base_url=self.base_url,
-                temperature=self.temperature,
-                num_predict=self.max_tokens,
-                timeout=self.timeout
-            )
-            logger.info(f"Chat model initialized with model: {self.model_name}")
+            import ollama
+            self.direct_ollama_client = ollama.AsyncClient()
+            self.chat_model = None  # Mark that we're using direct client
+            logger.info(f"Direct Ollama client initialized with model: {self.model_name}")
         except Exception as e:
-            logger.error(f"Failed to initialize chat model: {e}")
+            logger.error(f"Failed to initialize direct Ollama client: {e}")
             raise
     
     def get_callback_manager(self, agent_id: str) -> CallbackManager:
@@ -172,14 +172,30 @@ class AIClient:
             # Get callback manager
             callback_manager = self.get_callback_manager(agent_id)
             
-            # Generate response
-            response = await self.chat_model.agenerate(
-                messages=[messages],
-                callbacks=callback_manager
-            )
-            
-            # Extract response text
-            response_text = response.generations[0][0].text
+            # Generate response using appropriate client
+            if self.chat_model is not None:
+                # Use LangChain client
+                response = await self.chat_model.agenerate(
+                    messages=[messages],
+                    callbacks=callback_manager
+                )
+                response_text = response.generations[0][0].text
+            else:
+                # Use direct Ollama client
+                # Convert messages to simple format for direct client
+                prompt_text = prompt
+                if system_prompt:
+                    prompt_text = f"System: {system_prompt}\n\nUser: {prompt}"
+                
+                response = await self.direct_ollama_client.chat(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt_text}],
+                    options={
+                        "temperature": self.temperature,
+                        "num_predict": self.max_tokens
+                    }
+                )
+                response_text = response['message']['content']
             
             # Update metrics
             self.total_tokens += len(response_text.split())

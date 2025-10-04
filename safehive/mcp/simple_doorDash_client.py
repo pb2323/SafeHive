@@ -77,7 +77,7 @@ class SimpleDoorDashMCPClient:
     def __init__(self, mcp_server_path: str, environment: str = "sandbox"):
         self.mcp_server_path = mcp_server_path
         self.environment = environment
-        self.mcp_root = "/Users/rutujanemane/Documents/SJSU/A10 hackathon/DoorDash-MCP-Server"
+        self.mcp_root = "/Users/puneetbajaj/Desktop/playground/DoorDash-MCP-Server"
         
         # Validate MCP server path
         import os

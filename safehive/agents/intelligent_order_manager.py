@@ -148,12 +148,23 @@ class IntelligentOrderManager:
         if history_file.exists():
             try:
                 with open(history_file, 'r') as f:
-                    data = json.load(f)
-                    for reasoning_data in data:
-                        reasoning = self._reconstruct_reasoning(reasoning_data)
-                        if reasoning:
-                            self.reasoning_history.append(reasoning)
-                logger.info(f"Loaded {len(self.reasoning_history)} reasoning records")
+                    content = f.read().strip()
+                    if not content:
+                        logger.info("Reasoning history file is empty, starting fresh")
+                        return
+                    data = json.loads(content)
+                    if isinstance(data, list):
+                        for reasoning_data in data:
+                            reasoning = self._reconstruct_reasoning(reasoning_data)
+                            if reasoning:
+                                self.reasoning_history.append(reasoning)
+                        logger.info(f"Loaded {len(self.reasoning_history)} reasoning records")
+                    else:
+                        logger.warning("Reasoning history file has unexpected format")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Reasoning history file is corrupted, starting fresh: {e}")
+                # Create a fresh file
+                self._save_reasoning_history()
             except Exception as e:
                 logger.error(f"Failed to load reasoning history: {e}")
     

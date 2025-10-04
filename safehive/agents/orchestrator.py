@@ -428,25 +428,52 @@ class OrchestratorAgent(BaseAgent):
             # Define tools for the orchestrator
             self.tools = self._create_orchestrator_tools()
             
-            # Create prompt template
-            self.prompt = ChatPromptTemplate.from_messages([
-                ("system", self._get_system_prompt()),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ])
+            # Create prompt template for ReAct agent
+            from langchain.prompts import PromptTemplate
             
-            # Create LLM
-            self.llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
-                temperature=self.configuration.temperature,
-                max_tokens=self.configuration.max_tokens
+            react_prompt = """You are an Orchestrator agent for food ordering coordination.
+
+{system_prompt}
+
+You have access to the following tools:
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+
+            self.prompt = PromptTemplate(
+                template=react_prompt,
+                input_variables=["system_prompt", "tools", "tool_names", "input", "agent_scratchpad"]
             )
             
-            # Create agent
-            self.agent = create_openai_functions_agent(
+            # Use the AI client's LLM (which connects to Ollama)
+            if hasattr(self, '_ai_client') and self._ai_client and self._ai_client.llm:
+                self.llm = self._ai_client.llm
+            else:
+                # Fallback to simple LLM setup
+                logger.warning("AI client not available, using fallback LLM setup")
+                return
+            
+            # Create a simpler agent compatible with Ollama
+            from langchain.agents import create_react_agent
+            
+            self.agent = create_react_agent(
                 llm=self.llm,
                 tools=self.tools,
-                prompt=self.prompt
+                prompt=self.prompt.partial(system_prompt=self._get_system_prompt())
             )
             
             # Create agent executor

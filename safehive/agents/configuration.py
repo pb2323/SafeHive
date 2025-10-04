@@ -244,6 +244,9 @@ class AgentConfiguration:
     enable_profiling: bool = False
     response_time_preference: str = "balanced"  # fast, balanced, thorough
     
+    # Tools and capabilities
+    tools: List[Any] = field(default_factory=list)
+    
     # Custom settings
     custom_settings: Dict[str, Any] = field(default_factory=dict)
     

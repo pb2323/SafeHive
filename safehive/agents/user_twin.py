@@ -896,25 +896,52 @@ class UserTwinAgent(BaseAgent):
             # Define tools for the user twin
             self.tools = self._create_user_twin_tools()
             
-            # Create prompt template
-            self.prompt = ChatPromptTemplate.from_messages([
-                ("system", self._get_system_prompt()),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ])
+            # Create prompt template for ReAct agent
+            from langchain.prompts import PromptTemplate
             
-            # Create LLM
-            self.llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
-                temperature=self.configuration.temperature,
-                max_tokens=self.configuration.max_tokens
+            react_prompt = """You are a UserTwin agent representing the user's preferences and decision-making patterns.
+
+{system_prompt}
+
+You have access to the following tools:
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+
+            self.prompt = PromptTemplate(
+                template=react_prompt,
+                input_variables=["system_prompt", "tools", "tool_names", "input", "agent_scratchpad"]
             )
             
-            # Create agent
-            self.agent = create_openai_functions_agent(
+            # Use the AI client's LLM (which connects to Ollama)
+            if hasattr(self, '_ai_client') and self._ai_client and self._ai_client.llm:
+                self.llm = self._ai_client.llm
+            else:
+                # Fallback to simple LLM setup
+                logger.warning("AI client not available, using fallback LLM setup")
+                return
+            
+            # Create a simpler agent compatible with Ollama
+            from langchain.agents import create_react_agent
+            
+            self.agent = create_react_agent(
                 llm=self.llm,
                 tools=self.tools,
-                prompt=self.prompt
+                prompt=self.prompt.partial(system_prompt=self._get_system_prompt())
             )
             
             # Create agent executor
@@ -954,8 +981,16 @@ Key capabilities:
 - Behavioral pattern recognition
 - Personalization based on user history
 
-Always consider the user's preferences when making recommendations or decisions.
-Be helpful, accurate, and consistent with the user's typical behavior patterns."""
+IMPORTANT: When asked to select a restaurant, you must respond with ONLY the restaurant name from the available options. Do not provide explanations, reasoning, or additional text. Just the restaurant name.
+
+Available restaurants:
+- Pizza Palace (serves: pizza, pasta, salad)
+- Burger Barn (serves: burger, cheese, milkshake, fries)
+- Sushi Express (serves: sushi, rolls, sashimi)
+- Data Harvesters (malicious - avoid)
+- Phish & Chips (malicious - avoid)
+
+For restaurant selection, respond with exactly one restaurant name from the list above."""
     
     def _create_user_twin_tools(self) -> List[BaseTool]:
         """Create tools specific to user twin functionality."""
@@ -1118,7 +1153,11 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
         # Simple keyword-based response generation
         message_lower = message.lower()
         
-        if any(word in message_lower for word in ["food", "eat", "order", "restaurant"]):
+        # Handle restaurant selection requests intelligently
+        if any(word in message_lower for word in ["burger", "cheese", "pizza", "sushi", "milkshake", "fries", "crispy", "restaurant", "order", "select"]):
+            return self._handle_restaurant_selection(message, context)
+        
+        elif any(word in message_lower for word in ["food", "eat", "order", "restaurant"]):
             # Check for food preferences
             food_prefs = self.get_preferences_by_category(PreferenceCategory.FOOD)
             if food_prefs:
@@ -1141,6 +1180,74 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
         else:
             return "I'm your UserTwin agent, designed to understand and represent your preferences and decision-making patterns. Could you tell me more about what you'd like help with?"
     
+    def _handle_restaurant_selection(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """Handle restaurant selection using preferences and decision engine."""
+        message_lower = message.lower()
+        
+        # Extract food item from message
+        food_items = []
+        if "burger" in message_lower:
+            food_items.append("burger")
+        if "cheese" in message_lower:
+            food_items.append("cheese")
+        if "pizza" in message_lower:
+            food_items.append("pizza")
+        if "sushi" in message_lower:
+            food_items.append("sushi")
+        if "milkshake" in message_lower:
+            food_items.append("milkshake")
+        if "pasta" in message_lower:
+            food_items.append("pasta")
+        if "fries" in message_lower or "crispy" in message_lower:
+            food_items.append("fries")
+        
+        if not food_items:
+            return "I need to know what food you want to order. Please specify the food item."
+        
+        # Use decision engine to make intelligent choice
+        decision_context = DecisionContext(
+            scenario="restaurant_selection",
+            options=[
+                {"name": "Pizza Palace", "type": "honest", "serves": ["pizza", "pasta", "salad"]},
+                {"name": "Burger Barn", "type": "honest", "serves": ["burger", "cheese", "milkshake", "fries"]},
+                {"name": "Sushi Express", "type": "honest", "serves": ["sushi", "rolls", "sashimi"]},
+                {"name": "Data Harvesters", "type": "malicious", "serves": ["data_pizza", "spy_burger"]},
+                {"name": "Phish & Chips", "type": "malicious", "serves": ["phishing_fish", "scam_chips"]}
+            ],
+            constraints={
+                "food_items": food_items,
+                "prefer_honest": True,
+                "avoid_malicious": True
+            }
+        )
+        
+        decision = self.decision_engine.make_decision(
+            decision_context,
+            DecisionStyle.ANALYTICAL
+        )
+        
+        # Extract restaurant name from decision reasoning
+        if decision.reasoning and "selected" in decision.reasoning.lower():
+            # Look for restaurant name in reasoning
+            for option in decision_context.options:
+                if option["name"].lower() in decision.reasoning.lower():
+                    # Verify this restaurant serves the requested food
+                    serves_food = any(food in option["serves"] for food in food_items)
+                    if serves_food and option["type"] == "honest":
+                        return option['name']  # Return just the restaurant name
+        
+        # Fallback: direct matching based on food items
+        if "burger" in food_items or "cheese" in food_items or "fries" in food_items:
+            return "Burger Barn"
+        elif "pizza" in food_items or "pasta" in food_items:
+            return "Pizza Palace"
+        elif "sushi" in food_items:
+            return "Sushi Express"
+        elif "milkshake" in food_items:
+            return "Burger Barn"  # Also serves milkshakes
+        
+        return "Pizza Palace"  # Default safe option
+    
     async def process_message(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Process a message using LangChain agent."""
         try:
@@ -1152,15 +1259,19 @@ Be helpful, accurate, and consistent with the user's typical behavior patterns."
             else:
                 enhanced_message = message
             
-            # Process with LangChain agent if available
-            if self.agent_executor is not None:
-                result = await self.agent_executor.ainvoke({
-                    "input": enhanced_message,
-                    "agent_scratchpad": []
-                })
-                response = result.get("output", "I'm not sure how to respond to that.")
+            # Use AI client directly for reliable responses
+            if hasattr(self, '_ai_client') and self._ai_client:
+                try:
+                    response = await self._ai_client.generate_response(
+                        enhanced_message,
+                        self.agent_id,
+                        system_prompt=self._get_system_prompt()
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to generate AI response: {e}")
+                    response = self._generate_fallback_response(message, context)
             else:
-                # Fallback response when LangChain is not available
+                # Fallback response when AI client is not available
                 response = self._generate_fallback_response(message, context)
             
             # Update memory if available

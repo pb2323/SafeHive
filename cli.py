@@ -387,13 +387,13 @@ def sandbox_start(
         if background:
             # Start session in background
             console.print("🚀 Starting session in background...", style="blue")
-            asyncio.run(sandbox_manager.start_session(session.session_id))
+            asyncio.run(sandbox_manager.start_session(session.session_id, wait_for_completion=False))
             console.print(f"✅ Session {session.session_id} started in background", style="green")
             console.print("💡 Use 'safehive progress status' to monitor progress", style="dim")
         else:
             # Start session and wait
             console.print("🚀 Starting session...", style="blue")
-            asyncio.run(sandbox_manager.start_session(session.session_id))
+            asyncio.run(sandbox_manager.start_session(session.session_id, wait_for_completion=True))
             
             # Update progress
             session = sandbox_manager.get_session(session.session_id)

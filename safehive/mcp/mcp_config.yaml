@@ -4,7 +4,7 @@
 # MCP Server Configuration
 mcp_server:
   # Path to the compiled MCP server
-  path: "/Users/rutujanemane/Documents/SJSU/A10 hackathon/DoorDash-MCP-Server/build/index.js"
+  path: "/Users/puneetbajaj/Desktop/playground/DoorDash-MCP-Server/build/index.js"
   
   # Environment settings
   environment: "sandbox"  # "sandbox" or "production"
