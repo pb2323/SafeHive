@@ -731,9 +731,33 @@ Based on the user's request and your preferences, select the most appropriate re
                 # Check if vendor response contains malicious requests
                 if guard_analysis.get("blocked", False):
                     self.logger.warning(f"🛡️ Vendor response blocked by guards: {guard_analysis.get('reason', 'Security threat detected')}")
-                    # Create a blocked response
-                    vendor_response_text = "I apologize, but I cannot provide that information as it's not required for your order. Please provide only the necessary details for food delivery."
-                    self.logger.info(f"💬 {restaurant['name']} (blocked response): {vendor_response_text}")
+                    
+                    # Human-in-the-loop intervention for malicious responses
+                    human_decision = await self._get_human_intervention_decision(
+                        original_vendor_response=vendor_response_text,
+                        blocked_reason=guard_analysis.get('reason', 'Security threat detected'),
+                        restaurant_name=restaurant['name'],
+                        conversation_turn=conversation_turn
+                    )
+                    
+                    if human_decision == "allow":
+                        self.logger.info(f"👤 Human decision: ALLOW - Using original vendor response")
+                        # Use original vendor response
+                        vendor_response_text = vendor_response_text
+                    elif human_decision == "redact":
+                        self.logger.info(f"👤 Human decision: REDACT - Redacting sensitive information")
+                        # Redact sensitive information but keep the response
+                        vendor_response_text = self._redact_sensitive_information(vendor_response_text)
+                    elif human_decision == "ignore":
+                        self.logger.info(f"👤 Human decision: IGNORE - Continuing conversation")
+                        # Use original vendor response but log the decision
+                        vendor_response_text = vendor_response_text
+                    else:  # "block" (default)
+                        self.logger.info(f"👤 Human decision: BLOCK - Using generic response")
+                        # Create a blocked response
+                        vendor_response_text = "I apologize, but I cannot provide that information as it's not required for your order. Please provide only the necessary details for food delivery."
+                    
+                    self.logger.info(f"💬 {restaurant['name']} (human-intervened response): {vendor_response_text}")
                 else:
                     self.logger.info(f"🛡️ Vendor response passed guard analysis: {guard_analysis.get('reason', 'No threats detected')}")
                 
@@ -1225,6 +1249,78 @@ Based on the user's request and your preferences, select the most appropriate re
             return "confirmation"
         else:
             return "finalization"
+    
+    async def _get_human_intervention_decision(self, original_vendor_response: str, blocked_reason: str, restaurant_name: str, conversation_turn: int) -> str:
+        """Get human intervention decision for blocked vendor responses."""
+        try:
+            from rich.console import Console
+            from rich.prompt import Prompt
+            
+            console = Console()
+            
+            # Display the security alert
+            console.print("\n🚨 [bold red]SECURITY ALERT - HUMAN INTERVENTION REQUIRED[/bold red]")
+            console.print(f"🛡️ [yellow]Guards detected suspicious behavior from {restaurant_name}[/yellow]")
+            console.print(f"🔄 [cyan]Conversation Turn: {conversation_turn}[/cyan]")
+            console.print(f"⚠️ [red]Blocked Reason: {blocked_reason}[/red]")
+            console.print(f"\n📝 [yellow]Original Vendor Response:[/yellow]")
+            console.print(f"[dim]{original_vendor_response}[/dim]")
+            
+            # Display options
+            console.print(f"\n🤔 [bold]What action would you like to take?[/bold]")
+            console.print("1. [green]ALLOW[/green] - Use original vendor response (bypass security)")
+            console.print("2. [yellow]REDACT[/yellow] - Remove sensitive information but keep response")
+            console.print("3. [blue]IGNORE[/blue] - Allow this time but monitor future interactions")
+            console.print("4. [red]BLOCK[/red] - Use generic safe response (recommended)")
+            
+            # Get user choice
+            while True:
+                choice = Prompt.ask(
+                    "\n🎯 Enter your choice (1-4) or (allow/redact/ignore/block)",
+                    default="4",
+                    choices=["1", "2", "3", "4", "allow", "redact", "ignore", "block"]
+                )
+                
+                # Convert choice to action
+                if choice in ["1", "allow"]:
+                    return "allow"
+                elif choice in ["2", "redact"]:
+                    return "redact"
+                elif choice in ["3", "ignore"]:
+                    return "ignore"
+                elif choice in ["4", "block"]:
+                    return "block"
+                else:
+                    console.print("[red]Invalid choice. Please select 1-4 or allow/redact/ignore/block[/red]")
+                    
+        except Exception as e:
+            self.logger.error(f"Error getting human intervention decision: {e}")
+            return "block"  # Default to block on error
+    
+    def _redact_sensitive_information(self, text: str) -> str:
+        """Redact sensitive information from vendor response."""
+        import re
+        
+        # Patterns to redact
+        redaction_patterns = [
+            (r'\b(ssn|social security)\b', '[REDACTED: Personal ID]'),
+            (r'\b(otp|one.?time.?password)\b', '[REDACTED: Authentication]'),
+            (r'\b(pin|personal.?identification.?number)\b', '[REDACTED: PIN]'),
+            (r'\b(bank.?account.?number)\b', '[REDACTED: Bank Account]'),
+            (r'\b(routing.?number)\b', '[REDACTED: Routing Number]'),
+            (r'\b(cvv|cvc|security.?code)\b', '[REDACTED: Security Code]'),
+            (r'\b(mother.?s.?maiden.?name|maiden.?name)\b', '[REDACTED: Personal Info]'),
+            (r'\b(date.?of.?birth|dob)\b', '[REDACTED: Date of Birth]'),
+            (r'\b(click.?this.?link)\b', '[REDACTED: Suspicious Link]'),
+            (r'\b(verify.?your.?account)\b', '[REDACTED: Account Verification]'),
+            (r'http[s]?://[^\s]+', '[REDACTED: URL]'),
+        ]
+        
+        redacted_text = text
+        for pattern, replacement in redaction_patterns:
+            redacted_text = re.sub(pattern, replacement, redacted_text, flags=re.IGNORECASE)
+        
+        return redacted_text
     
     async def _analyze_vendor_response_with_guards(self, vendor_response: str, restaurant: Dict[str, Any], context: ScenarioContext) -> Dict[str, Any]:
         """Analyze vendor response with security guards in real-time."""
