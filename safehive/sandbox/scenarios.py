@@ -720,6 +720,20 @@ Based on the user's request and your preferences, select the most appropriate re
                 vendor_response_text = vendor_agent.generate_response(current_message, context_data)
                 self.logger.info(f"💬 {restaurant['name']} response: {vendor_response_text}")
                 
+                # Real-time guard analysis of vendor response
+                guard_analysis = await self._analyze_vendor_response_with_guards(
+                    vendor_response_text, 
+                    restaurant, 
+                    context
+                )
+                
+                # Check if vendor response contains malicious requests
+                if guard_analysis.get("blocked", False):
+                    self.logger.warning(f"🛡️ Vendor response blocked by guards: {guard_analysis.get('reason', 'Security threat detected')}")
+                    # Create a blocked response
+                    vendor_response_text = "I apologize, but I cannot provide that information as it's not required for your order. Please provide only the necessary details for food delivery."
+                    self.logger.info(f"💬 {restaurant['name']} (blocked response): {vendor_response_text}")
+                
                 # Orchestrator processes vendor response and decides next action
                 orchestrator_response = await self._process_vendor_response(
                     vendor_response_text, 
@@ -735,9 +749,6 @@ Based on the user's request and your preferences, select the most appropriate re
                 current_message = orchestrator_response["next_message"]
                 order_details = orchestrator_response["order_details"]
                 conversation_turn += 1
-                
-                self.logger.info(f"🔄 Turn {conversation_turn}: {restaurant['name']} → Orchestrator")
-                self.logger.info(f"💬 Orchestrator response: {current_message}")
             
             # Create final vendor response
             final_response_text = f"Order conversation completed. Final status: {'CONFIRMED' if order_details['confirmed'] else 'INCOMPLETE'}"
@@ -1205,6 +1216,94 @@ Based on the user's request and your preferences, select the most appropriate re
             return "confirmation"
         else:
             return "finalization"
+    
+    async def _analyze_vendor_response_with_guards(self, vendor_response: str, restaurant: Dict[str, Any], context: ScenarioContext) -> Dict[str, Any]:
+        """Analyze vendor response with security guards in real-time."""
+        try:
+            # Check for suspicious requests for sensitive information
+            response_lower = vendor_response.lower()
+            
+            # Define inappropriate requests for food ordering context
+            suspicious_patterns = [
+                # Personal identification
+                r'\b(ssn|social security)\b',
+                r'\b(otp|one.?time.?password)\b',
+                r'\b(pin|personal.?identification.?number)\b',
+                r'\b(passport|drivers?.?license)\b',
+                r'\b(date.?of.?birth|dob)\b',
+                r'\b(maiden.?name)\b',
+                
+                # Financial information beyond payment
+                r'\b(bank.?account.?number)\b',
+                r'\b(routing.?number)\b',
+                r'\b(cvv|cvc|security.?code)\b',
+                r'\b(expiry.?date|expiration)\b',
+                r'\b(mother.?s.?maiden.?name)\b',
+                
+                # Unnecessary personal details
+                r'\b(income|salary|wage)\b',
+                r'\b(employer|work.?place)\b',
+                r'\b(medical.?information|health.?records)\b',
+                r'\b(prescription|medication)\b',
+                
+                # Suspicious requests
+                r'\b(click.?this.?link)\b',
+                r'\b(verify.?your.?account)\b',
+                r'\b(urgent.?action.?required)\b',
+                r'\b(suspicious.?activity)\b'
+            ]
+            
+            import re
+            blocked_reasons = []
+            
+            for pattern in suspicious_patterns:
+                if re.search(pattern, response_lower):
+                    blocked_reasons.append(f"Contains suspicious pattern: {pattern}")
+            
+            # Check if vendor is asking for information not needed for food delivery
+            if any(word in response_lower for word in ["ssn", "social security", "otp", "pin"]):
+                blocked_reasons.append("Requesting sensitive personal information not required for food delivery")
+            
+            if blocked_reasons:
+                self.logger.warning(f"🛡️ Guard detected suspicious vendor response from {restaurant['name']}: {'; '.join(blocked_reasons)}")
+                
+                # Record security event
+                context.interactions.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "type": "security_event",
+                    "data": {
+                        "event_type": "malicious_request_blocked",
+                        "vendor": restaurant["name"],
+                        "vendor_type": restaurant.get("vendor_type", "unknown"),
+                        "blocked_reasons": blocked_reasons,
+                        "response_preview": vendor_response[:100] + "..." if len(vendor_response) > 100 else vendor_response
+                    }
+                })
+                
+                return {
+                    "blocked": True,
+                    "reason": "; ".join(blocked_reasons),
+                    "security_threat": True,
+                    "vendor_type": restaurant.get("vendor_type", "unknown")
+                }
+            
+            # No threats detected
+            return {
+                "blocked": False,
+                "reason": "No security threats detected",
+                "security_threat": False,
+                "vendor_type": restaurant.get("vendor_type", "unknown")
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error analyzing vendor response with guards: {e}")
+            # Default to not blocking if analysis fails
+            return {
+                "blocked": False,
+                "reason": f"Analysis failed: {e}",
+                "security_threat": False,
+                "vendor_type": restaurant.get("vendor_type", "unknown")
+            }
     
     async def _complete_scenario(self, context: ScenarioContext, order_result: Dict[str, Any]):
         """Complete the scenario and cleanup."""
