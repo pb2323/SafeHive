@@ -407,8 +407,9 @@ Available restaurants: {restaurant_list}
 Based on the user's request and your preferences, select the most appropriate restaurant. Respond with ONLY the restaurant name, nothing else."""
             
             # Use the User Twin agent for intelligent restaurant selection
+            self.logger.info(f"🤖 Sending message to User Twin agent: {specific_prompt}")
             response = await self.user_twin.process_message(specific_prompt, {"context": "restaurant_selection"})
-            self.logger.info(f"User Twin response for restaurant selection: {response}")
+            self.logger.info(f"🤖 User Twin agent response: {response}")
             
             # Extract restaurant name from User Twin response
             selected_restaurant_name = self._extract_restaurant_name_from_ai_response(response, restaurants)
@@ -565,7 +566,10 @@ Based on the user's request and your preferences, select the most appropriate re
             # Use Orchestrator to search for vendors with original user input
             original_input = preferences.get('original_input', 'italian food')
             query = original_input if original_input != 'default' else f"{preferences.get('cuisine_type', 'italian')} food"
+            
+            self.logger.info(f"🔍 Sending search request to Orchestrator agent: '{query}'")
             vendors = await self.orchestrator.search_vendors(query, preferences)
+            self.logger.info(f"🔍 Orchestrator found {len(vendors)} vendors for query: '{query}'")
             
             # Convert vendors to restaurant format
             restaurants = []
@@ -657,6 +661,8 @@ Based on the user's request and your preferences, select the most appropriate re
             # Communicate directly with the vendor agent
             message = f"Hello, I'd like to place an order. Can you tell me about your menu and prices?"
             
+            self.logger.info(f"🍽️ Sending order request to {restaurant['name']} vendor: {message}")
+            
             # Use the vendor agent's process_order_request method
             order_request = {
                 "message": message,
@@ -665,6 +671,8 @@ Based on the user's request and your preferences, select the most appropriate re
                 "restaurant": restaurant
             }
             vendor_response = vendor_agent.process_order_request(order_request)
+            
+            self.logger.info(f"🍽️ {restaurant['name']} vendor response: {vendor_response.reason if hasattr(vendor_response, 'reason') else str(vendor_response)}")
             
             # Create a structured response from VendorResponse object
             structured_response = {
@@ -720,6 +728,10 @@ Based on the user's request and your preferences, select the most appropriate re
                     "overall_risk": "unknown",
                     "error": "No vendor response"
                 }
+            
+            self.logger.info(f"🛡️ Analyzing vendor response with security guards")
+            self.logger.info(f"🛡️ Vendor: {vendor_response.get('restaurant', 'Unknown')}")
+            self.logger.info(f"🛡️ Response: {vendor_response.get('message', 'No message')[:100]}...")
             
             # Process vendor response through all guards
             guard_results = self.guard_manager.process_through_guards(
@@ -871,7 +883,18 @@ Based on the user's request and your preferences, select the most appropriate re
                     "order_status": "approved"
                 }
                 
-                self.logger.info("Order approved - no security risks detected")
+                # Get order details for logging
+                restaurant_name = vendor_response.get("restaurant", "Unknown")
+                user_preferences = context.data.get("user_preferences", {})
+                original_input = user_preferences.get("original_input", "Unknown")
+                
+                self.logger.info("✅ Order approved - no security risks detected")
+                self.logger.info(f"📋 FINAL ORDER DETAILS:")
+                self.logger.info(f"   🍽️ Restaurant: {restaurant_name}")
+                self.logger.info(f"   🎯 User Request: {original_input}")
+                self.logger.info(f"   ✅ Status: APPROVED")
+                self.logger.info(f"   🛡️ Security: No threats detected")
+                
                 record_metric("scenario.food_ordering.order_approved", 1, MetricType.COUNTER)
             
             context.data["order_decision"] = decision
@@ -896,6 +919,15 @@ Based on the user's request and your preferences, select the most appropriate re
     async def _complete_scenario(self, context: ScenarioContext, order_result: Dict[str, Any]):
         """Complete the scenario and cleanup."""
         self.logger.info("Completing scenario execution")
+        
+        # Log final scenario summary
+        self.logger.info("📊 SCENARIO EXECUTION SUMMARY:")
+        self.logger.info(f"   🔄 Total Interactions: {len(context.interactions)}")
+        self.logger.info(f"   🛡️ Security Events: {len(context.security_events)}")
+        self.logger.info(f"   ✅ Final Decision: {order_result.get('action', 'unknown').upper()}")
+        self.logger.info(f"   🎯 Order Status: {order_result.get('order_status', 'unknown').upper()}")
+        self.logger.info(f"   🤖 Agents Used: {len(self.vendor_agents) + 2}")
+        self.logger.info(f"   🛡️ Guards Active: {len(self.guard_manager.guards) if self.guard_manager else 0}")
         
         try:
             # Update scenario metrics
