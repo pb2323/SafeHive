@@ -340,6 +340,9 @@ class FoodOrderingScenario(BaseScenario):
         console.print("  • 'I want a burger' or 'burger'")
         console.print("  • 'Something Italian' or 'italian'")
         console.print("  • 'Japanese food' or 'japanese'")
+        console.print("  • 'Pizza under $13' or 'burger below $12'")
+        console.print("  • 'Sushi around $10' or 'chips less than $5'")
+        console.print("  • 'Food between $8 and $15' or 'pasta max $11'")
         
         # Get user input using standard input
         try:
@@ -461,13 +464,23 @@ class FoodOrderingScenario(BaseScenario):
         self.logger.info(f"Using User Twin agent to select restaurant for user input: '{user_input}'")
         
         try:
-            # Create a specific prompt for restaurant selection
-            restaurant_names = [r['name'] for r in restaurants]
-            restaurant_list = ", ".join(restaurant_names)
+            # Parse price constraints from user input
+            price_constraint = self._parse_price_constraint(user_input)
+            
+            # Filter restaurants based on price constraint
+            filtered_restaurants = self._filter_restaurants_by_price(restaurants, price_constraint)
+            
+            if not filtered_restaurants:
+                self.logger.warning(f"No restaurants found matching price constraint: {price_constraint}")
+                # Fall back to all restaurants if price filtering eliminates all options
+                filtered_restaurants = restaurants
+            
+            # Create a specific prompt for restaurant selection with price information
+            restaurant_info = self._format_restaurant_info_for_prompt(filtered_restaurants, price_constraint)
             
             specific_prompt = f"""Select a restaurant for the user who wants: "{user_input}"
 
-Available restaurants: {restaurant_list}
+{restaurant_info}
 
 Based on the user's request and your preferences, select the most appropriate restaurant. Respond with ONLY the restaurant name, nothing else."""
             
@@ -477,17 +490,17 @@ Based on the user's request and your preferences, select the most appropriate re
             self.logger.info(f"🤖 User Twin agent response: {response}")
             
             # Extract restaurant name from User Twin response
-            selected_restaurant_name = self._extract_restaurant_name_from_ai_response(response, restaurants)
+            selected_restaurant_name = self._extract_restaurant_name_from_ai_response(response, filtered_restaurants)
             
             if selected_restaurant_name:
-                selected_restaurant = next((r for r in restaurants if r['name'] == selected_restaurant_name), None)
+                selected_restaurant = next((r for r in filtered_restaurants if r['name'] == selected_restaurant_name), None)
                 if selected_restaurant:
                     self.logger.info(f"User Twin selected restaurant: {selected_restaurant_name}")
                     return selected_restaurant
             
             # Fallback to rule-based selection if User Twin response is unclear
             self.logger.warning("User Twin response unclear, falling back to rule-based selection")
-            return await self._rule_based_select_restaurant(restaurants, preferences)
+            return await self._rule_based_select_restaurant(filtered_restaurants, preferences)
             
         except Exception as e:
             self.logger.error(f"Error using User Twin for restaurant selection: {e}")
@@ -1661,6 +1674,164 @@ Based on the user's original request and your preferences, select the best alter
         except Exception as e:
             self.logger.error(f"Error completing scenario: {e}")
             record_metric("scenario.food_ordering.completion_error", 1, MetricType.COUNTER)
+    
+    def _parse_price_constraint(self, user_input: str) -> Dict[str, Any]:
+        """Parse price constraints from user input."""
+        import re
+        
+        # Price constraint patterns
+        patterns = {
+            'under': r'under\s*\$?(\d+(?:\.\d{2})?)',
+            'below': r'below\s*\$?(\d+(?:\.\d{2})?)',
+            'less_than': r'less\s+than\s*\$?(\d+(?:\.\d{2})?)',
+            'max': r'max(?:imum)?\s*\$?(\d+(?:\.\d{2})?)',
+            'at_most': r'at\s+most\s*\$?(\d+(?:\.\d{2})?)',
+            'up_to': r'up\s+to\s*\$?(\d+(?:\.\d{2})?)',
+            'around': r'around\s*\$?(\d+(?:\.\d{2})?)',
+            'about': r'about\s*\$?(\d+(?:\.\d{2})?)',
+            'between': r'between\s*\$?(\d+(?:\.\d{2})?)\s*and\s*\$?(\d+(?:\.\d{2})?)',
+            'range': r'\$?(\d+(?:\.\d{2})?)\s*-\s*\$?(\d+(?:\.\d{2})?)'
+        }
+        
+        user_input_lower = user_input.lower()
+        
+        # Check for maximum price constraints
+        for constraint_type, pattern in patterns.items():
+            if constraint_type in ['under', 'below', 'less_than', 'max', 'at_most', 'up_to']:
+                match = re.search(pattern, user_input_lower)
+                if match:
+                    max_price = float(match.group(1))
+                    self.logger.info(f"📊 Price constraint detected: {constraint_type} ${max_price}")
+                    return {
+                        'type': 'max',
+                        'value': max_price,
+                        'constraint': f"{constraint_type} ${max_price}"
+                    }
+            
+            elif constraint_type in ['around', 'about']:
+                match = re.search(pattern, user_input_lower)
+                if match:
+                    target_price = float(match.group(1))
+                    # Allow 20% variance around the target price
+                    variance = target_price * 0.2
+                    self.logger.info(f"📊 Price constraint detected: {constraint_type} ${target_price} (±${variance:.2f})")
+                    return {
+                        'type': 'range',
+                        'min': target_price - variance,
+                        'max': target_price + variance,
+                        'constraint': f"{constraint_type} ${target_price}"
+                    }
+            
+            elif constraint_type in ['between', 'range']:
+                match = re.search(pattern, user_input_lower)
+                if match:
+                    min_price = float(match.group(1))
+                    max_price = float(match.group(2))
+                    self.logger.info(f"📊 Price constraint detected: {constraint_type} ${min_price}-${max_price}")
+                    return {
+                        'type': 'range',
+                        'min': min_price,
+                        'max': max_price,
+                        'constraint': f"between ${min_price} and ${max_price}"
+                    }
+        
+        # No price constraint found
+        return None
+    
+    def _filter_restaurants_by_price(self, restaurants: List[Dict[str, Any]], price_constraint: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Filter restaurants based on price constraints."""
+        if not price_constraint:
+            return restaurants
+        
+        filtered_restaurants = []
+        
+        for restaurant in restaurants:
+            menu_items = self._get_menu_items(restaurant['name'])
+            
+            # Check if restaurant has any items within price constraint
+            has_matching_items = False
+            
+            for item in menu_items:
+                price_str = item.get('price', '')
+                
+                # Skip non-price items (malicious restaurants have non-numeric prices)
+                if not self._is_valid_price(price_str):
+                    continue
+                
+                price = self._extract_price_value(price_str)
+                if price is None:
+                    continue
+                
+                # Check if price matches constraint
+                if self._price_matches_constraint(price, price_constraint):
+                    has_matching_items = True
+                    break
+            
+            if has_matching_items:
+                filtered_restaurants.append(restaurant)
+        
+        self.logger.info(f"📊 Price filtering: {len(restaurants)} → {len(filtered_restaurants)} restaurants")
+        return filtered_restaurants
+    
+    def _is_valid_price(self, price_str: str) -> bool:
+        """Check if a price string represents a valid numeric price."""
+        import re
+        # Check if it's a dollar amount format
+        return bool(re.match(r'\$\d+(?:\.\d{2})?', price_str.strip()))
+    
+    def _extract_price_value(self, price_str: str) -> float:
+        """Extract numeric price value from price string."""
+        import re
+        match = re.search(r'\$?(\d+(?:\.\d{2})?)', price_str.strip())
+        if match:
+            return float(match.group(1))
+        return None
+    
+    def _price_matches_constraint(self, price: float, constraint: Dict[str, Any]) -> bool:
+        """Check if a price matches the given constraint."""
+        constraint_type = constraint.get('type')
+        
+        if constraint_type == 'max':
+            return price <= constraint['value']
+        elif constraint_type == 'range':
+            min_price = constraint.get('min', 0)
+            max_price = constraint.get('max', float('inf'))
+            return min_price <= price <= max_price
+        
+        return True
+    
+    def _format_restaurant_info_for_prompt(self, restaurants: List[Dict[str, Any]], price_constraint: Dict[str, Any]) -> str:
+        """Format restaurant information for the User Twin prompt."""
+        if price_constraint:
+            constraint_info = f" (Price constraint: {price_constraint['constraint']})"
+        else:
+            constraint_info = ""
+        
+        restaurant_info = f"Available restaurants{constraint_info}:\n"
+        
+        for restaurant in restaurants:
+            menu_items = self._get_menu_items(restaurant['name'])
+            restaurant_info += f"- {restaurant['name']}: "
+            
+            # Show relevant items with prices
+            relevant_items = []
+            for item in menu_items:
+                price_str = item.get('price', '')
+                if self._is_valid_price(price_str):
+                    price_value = self._extract_price_value(price_str)
+                    if price_constraint is None or self._price_matches_constraint(price_value, price_constraint):
+                        relevant_items.append(f"{item['name']} ({price_str})")
+            
+            if relevant_items:
+                restaurant_info += ", ".join(relevant_items[:3])  # Show first 3 items
+                if len(relevant_items) > 3:
+                    restaurant_info += f" (and {len(relevant_items) - 3} more)"
+            else:
+                restaurant_info += "No matching items"
+            
+            restaurant_info += "\n"
+        
+        return restaurant_info.strip()
 
 
 
