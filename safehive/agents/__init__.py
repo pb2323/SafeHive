@@ -22,6 +22,10 @@ from .user_twin import (
     DecisionStyle, PreferenceCategory, UserPreference, DecisionContext, Decision,
     PreferenceConflict, PreferenceManager, DecisionEngine, UserTwinAgent, create_user_twin_agent
 )
+from .orchestrator import (
+    OrderStatus, OrderType, PaymentStatus, OrderItem, Vendor, Order,
+    OrderManager, VendorManager, OrchestratorAgent, create_orchestrator_agent
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -65,5 +69,15 @@ __all__ = [
     "PreferenceManager",
     "DecisionEngine",
     "UserTwinAgent",
-    "create_user_twin_agent"
+    "create_user_twin_agent",
+    "OrderStatus",
+    "OrderType", 
+    "PaymentStatus",
+    "OrderItem",
+    "Vendor",
+    "Order",
+    "OrderManager",
+    "VendorManager",
+    "OrchestratorAgent",
+    "create_orchestrator_agent"
 ]

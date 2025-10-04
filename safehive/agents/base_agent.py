@@ -510,7 +510,7 @@ Message: {message}"""
         logger.info(f"Shutting down {self.name}")
         
         # Save memory if configured
-        if self.config.enable_logging and self._memory_manager:
+        if hasattr(self.config, 'enable_logging') and self.config.enable_logging and self._memory_manager:
             try:
                 await self.save_memory(f"logs/{self.agent_id}_memory.json")
             except Exception as e:
