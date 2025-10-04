@@ -1,0 +1,51 @@
+# SafeHive MCP Configuration
+# ==========================
+
+# MCP Server Configuration
+mcp_server:
+  # Path to the compiled MCP server
+  path: "/Users/rutujanemane/Documents/SJSU/A10 hackathon/DoorDash-MCP-Server/build/index.js"
+  
+  # Environment settings
+  environment: "sandbox"  # "sandbox" or "production"
+  
+  # Timeout settings (seconds)
+  timeout: 30
+  retry_attempts: 3
+  retry_delay: 1
+
+# DoorDash Configuration
+doordash:
+  # Default business and store IDs (from your sandbox account)
+  default_business_id: "default"
+  default_store_id: "7abd8d33-98aa-4d6f-a080-70e2ef06cee7"
+  
+  # Default addresses for testing
+  default_pickup_address: "116 New Montgomery St, San Francisco CA 94105-3607, United States"
+  default_pickup_phone: "6505555555"
+  
+  # Order settings
+  default_tip_percentage: 15
+  max_order_value: 100.00
+  min_order_value: 5.00
+
+# Security Settings
+security:
+  # Enable/disable order validation
+  validate_orders: true
+  
+  # Enable/disable safety checks
+  safety_checks: true
+  
+  # Log all order attempts
+  log_orders: true
+  
+  # Require confirmation for orders above this value
+  confirmation_threshold: 50.00
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/mcp_orders.log"
+  max_file_size: "10MB"
+  backup_count: 5
