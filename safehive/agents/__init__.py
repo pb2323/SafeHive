@@ -44,6 +44,10 @@ from .order_confirmation import (
     ConfirmationStatus, ApprovalType, ApprovalResult, ConfirmationStep,
     ApprovalRequirement, ConfirmationWorkflow, ConfirmationSession, OrderConfirmationManager
 )
+from .error_handling import (
+    ErrorSeverity, ErrorCategory, RetryStrategy, RecoveryAction,
+    ErrorContext, ErrorRecord, RetryConfig, LearningInsight, ErrorHandler, with_error_handling
+)
 from ..models.agent_models import AgentStatus
 
 __all__ = [
@@ -125,5 +129,15 @@ __all__ = [
     "ApprovalRequirement",
     "ConfirmationWorkflow",
     "ConfirmationSession",
-    "OrderConfirmationManager"
+    "OrderConfirmationManager",
+    "ErrorSeverity",
+    "ErrorCategory",
+    "RetryStrategy",
+    "RecoveryAction",
+    "ErrorContext",
+    "ErrorRecord",
+    "RetryConfig",
+    "LearningInsight",
+    "ErrorHandler",
+    "with_error_handling"
 ]

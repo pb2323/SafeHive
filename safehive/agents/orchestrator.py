@@ -57,6 +57,10 @@ from .order_confirmation import (
     OrderConfirmationManager, ConfirmationSession, ConfirmationStatus, ConfirmationWorkflow,
     ApprovalType, ApprovalResult
 )
+from .error_handling import (
+    ErrorHandler, ErrorContext, ErrorRecord, ErrorCategory, ErrorSeverity,
+    RetryStrategy, RecoveryAction, LearningInsight, with_error_handling
+)
 
 try:
     from .memory import SafeHiveMemoryManager, Conversation, AgentMessage
@@ -392,6 +396,7 @@ class OrchestratorAgent(BaseAgent):
         self.vendor_communication = VendorCommunicationInterface()
         self.order_validation = OrderValidationEngine()
         self.order_confirmation = OrderConfirmationManager()
+        self.error_handler = ErrorHandler()
         self.user_twin_agent: Optional[UserTwinAgent] = None
         
         # Initialize LangChain components
@@ -1061,6 +1066,114 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
         """Get all confirmation sessions."""
         return self.order_confirmation.get_active_sessions() + self.order_confirmation.confirmation_history
     
+    async def create_order_with_error_handling(self, user_id: str, vendor_id: str, 
+                                             items: List[Dict[str, Any]],
+                                             order_type: OrderType = OrderType.DELIVERY,
+                                             delivery_address: Optional[str] = None) -> Optional[Order]:
+        """Create order with comprehensive error handling."""
+        context = ErrorContext(
+            operation="create_order",
+            component="orchestrator",
+            user_id=user_id,
+            vendor_id=vendor_id
+        )
+        
+        try:
+            return await self.create_order(user_id, vendor_id, items, order_type, delivery_address)
+        except Exception as e:
+            logger.error(f"Error creating order for user {user_id}: {e}")
+            return await self.error_handler.handle_error(
+                e, context, 
+                lambda: self.create_order(user_id, vendor_id, items, order_type, delivery_address)
+            )
+    
+    async def process_order_with_error_handling(self, user_id: str, vendor_id: str, 
+                                              items: List[Dict[str, Any]],
+                                              order_type: OrderType = OrderType.DELIVERY,
+                                              delivery_address: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Process complete order workflow with error handling."""
+        context = ErrorContext(
+            operation="process_order_with_full_workflow",
+            component="orchestrator",
+            user_id=user_id,
+            vendor_id=vendor_id
+        )
+        
+        try:
+            return await self.process_order_with_full_workflow(
+                user_id, vendor_id, items, order_type, delivery_address
+            )
+        except Exception as e:
+            logger.error(f"Error processing order for user {user_id}: {e}")
+            return await self.error_handler.handle_error(
+                e, context,
+                lambda: self.process_order_with_full_workflow(
+                    user_id, vendor_id, items, order_type, delivery_address
+                )
+            )
+    
+    async def validate_order_with_error_handling(self, order_id: str) -> Optional[ValidationReport]:
+        """Validate order with error handling."""
+        context = ErrorContext(
+            operation="validate_order_comprehensive",
+            component="orchestrator",
+            order_id=order_id
+        )
+        
+        try:
+            return await self.validate_order_comprehensive(order_id)
+        except Exception as e:
+            logger.error(f"Error validating order {order_id}: {e}")
+            return await self.error_handler.handle_error(
+                e, context,
+                lambda: self.validate_order_comprehensive(order_id)
+            )
+    
+    async def confirm_order_with_error_handling(self, order_id: str) -> Optional[ConfirmationSession]:
+        """Confirm order with error handling."""
+        context = ErrorContext(
+            operation="confirm_order_with_workflow",
+            component="orchestrator",
+            order_id=order_id
+        )
+        
+        try:
+            return await self.confirm_order_with_workflow(order_id)
+        except Exception as e:
+            logger.error(f"Error confirming order {order_id}: {e}")
+            return await self.error_handler.handle_error(
+                e, context,
+                lambda: self.confirm_order_with_workflow(order_id)
+            )
+    
+    def get_error_statistics(self) -> Dict[str, Any]:
+        """Get error handling statistics."""
+        return self.error_handler.get_error_statistics()
+    
+    def get_learning_insights(self) -> List[LearningInsight]:
+        """Get learning insights from error handling."""
+        return self.error_handler.get_learning_insights()
+    
+    def get_recent_errors(self, limit: int = 50) -> List[ErrorRecord]:
+        """Get recent error records."""
+        return self.error_handler.get_error_records(limit)
+    
+    def add_custom_retry_config(self, error_category: ErrorCategory, config: Dict[str, Any]) -> None:
+        """Add custom retry configuration for specific error categories."""
+        from .error_handling import RetryConfig, RetryStrategy
+        
+        retry_config = RetryConfig(
+            max_retries=config.get("max_retries", 3),
+            base_delay=config.get("base_delay", 1.0),
+            max_delay=config.get("max_delay", 60.0),
+            backoff_multiplier=config.get("backoff_multiplier", 2.0),
+            jitter=config.get("jitter", True),
+            retry_strategy=RetryStrategy(config.get("retry_strategy", "exponential_backoff"))
+        )
+        
+        self.error_handler.retry_configs[error_category] = retry_config
+        logger.info(f"Added custom retry config for {error_category.value}")
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get agent metrics."""
         base_metrics = super().get_metrics()
@@ -1073,7 +1186,8 @@ Prioritize user satisfaction and ensure smooth order fulfillment."""
             "intelligent_optimizations": self.intelligent_order_manager.get_optimization_statistics(),
             "vendor_communications": self.vendor_communication.get_communication_statistics(),
             "order_validations": self.order_validation.get_validation_statistics(),
-            "order_confirmations": self.order_confirmation.get_confirmation_statistics()
+            "order_confirmations": self.order_confirmation.get_confirmation_statistics(),
+            "error_handling": self.error_handler.get_error_statistics()
         }
         
         return {**base_metrics, **orchestrator_metrics}
