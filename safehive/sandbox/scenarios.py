@@ -804,10 +804,6 @@ Based on the user's request and your preferences, select the most appropriate re
                         self.logger.info(f"👤 Human decision: ALLOW - Providing requested information")
                         # Use original vendor response (malicious request will be fulfilled)
                         vendor_response_text = vendor_response_text
-                    elif human_decision == "redact":
-                        self.logger.info(f"👤 Human decision: REDACT - Redacting sensitive information")
-                        # Redact sensitive information but keep the response
-                        vendor_response_text = self._redact_sensitive_information(vendor_response_text)
                     else:
                         self.logger.info(f"👤 Human decision: BLOCK - Using default to block")
                         # Default to block if there's an error
@@ -1377,56 +1373,29 @@ Based on the user's request and your preferences, select the most appropriate re
             # Display options
             console.print(f"\n🤔 [bold]What action would you like to take?[/bold]")
             console.print("1. [green]ALLOW[/green] - Provide requested information and continue")
-            console.print("2. [yellow]REDACT[/yellow] - Remove sensitive information but keep response")
-            console.print("3. [red]BLOCK[/red] - Decline order and find alternative vendor (recommended)")
+            console.print("2. [red]BLOCK[/red] - Decline order and find alternative vendor (recommended)")
             
             # Get user choice
             while True:
                 choice = Prompt.ask(
-                    "\n🎯 Enter your choice (1-3) or (allow/redact/block)",
-                    default="3",
-                    choices=["1", "2", "3", "allow", "redact", "block"]
+                    "\n🎯 Enter your choice (1-2) or (allow/block)",
+                    default="2",
+                    choices=["1", "2", "allow", "block"]
                 )
                 
                 # Convert choice to action
                 if choice in ["1", "allow"]:
                     return "allow"
-                elif choice in ["2", "redact"]:
-                    return "redact"
-                elif choice in ["3", "block"]:
+                elif choice in ["2", "block"]:
                     return "block"
                 else:
-                    console.print("[red]Invalid choice. Please select 1-3 or allow/redact/block[/red]")
+                    console.print("[red]Invalid choice. Please select 1-2 or allow/block[/red]")
                     
         except Exception as e:
             self.logger.error(f"Error getting human intervention decision: {e}")
             # Default to block on error (EOF, keyboard interrupt, etc.)
             return "block"
     
-    def _redact_sensitive_information(self, text: str) -> str:
-        """Redact sensitive information from vendor response."""
-        import re
-        
-        # Patterns to redact
-        redaction_patterns = [
-            (r'\b(ssn|social security)\b', '[REDACTED: Personal ID]'),
-            (r'\b(otp|one.?time.?password)\b', '[REDACTED: Authentication]'),
-            (r'\b(pin|personal.?identification.?number)\b', '[REDACTED: PIN]'),
-            (r'\b(bank.?account.?number)\b', '[REDACTED: Bank Account]'),
-            (r'\b(routing.?number)\b', '[REDACTED: Routing Number]'),
-            (r'\b(cvv|cvc|security.?code)\b', '[REDACTED: Security Code]'),
-            (r'\b(mother.?s.?maiden.?name|maiden.?name)\b', '[REDACTED: Personal Info]'),
-            (r'\b(date.?of.?birth|dob)\b', '[REDACTED: Date of Birth]'),
-            (r'\b(click.?this.?link)\b', '[REDACTED: Suspicious Link]'),
-            (r'\b(verify.?your.?account)\b', '[REDACTED: Account Verification]'),
-            (r'http[s]?://[^\s]+', '[REDACTED: URL]'),
-        ]
-        
-        redacted_text = text
-        for pattern, replacement in redaction_patterns:
-            redacted_text = re.sub(pattern, replacement, redacted_text, flags=re.IGNORECASE)
-        
-        return redacted_text
     
     def _vendor_offers_similar_food(self, user_input: str, menu_text: str, vendor_name: str) -> bool:
         """Check if a vendor offers food similar to what the user requested."""
