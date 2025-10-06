@@ -19,7 +19,7 @@ SafeHive is an advanced AI Security Sandbox that simulates realistic food orderi
 
 ### System Architecture Diagram
 
-
+![Image](https://github.com/user-attachments/assets/67a03b72-a0f2-42bb-aa32-f8fd56cada6d)
 
 ### Agent Interaction Flow
 
