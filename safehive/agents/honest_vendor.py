@@ -10,6 +10,15 @@ Provides genuine customer service, menu knowledge, and order processing.
 import logging
 import random
 from typing import Dict, Any, List
+
+try:
+    from langchain.tools import BaseTool
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    # Fallback for testing environments
+    LANGCHAIN_AVAILABLE = False
+    BaseTool = None
+
 from .vendors import BaseVendorAgent, VendorResponse, VendorType, VendorPersonality
 
 logger = logging.getLogger(__name__)
@@ -438,6 +447,59 @@ Behavior guidelines:
 
 You represent legitimate restaurants like Pizza Palace, Burger Barn, and Sushi Express that provide genuine food ordering services."""
 
+    def _create_honest_vendor_tools(self) -> List[BaseTool]:
+        """Create tools specific to honest vendor functionality."""
+        # Following system prompt: HonestVendorAgent representing legitimate restaurant
+        # See get_system_prompt_description() for complete behavior guidelines
+        
+        tools = []
+        
+        # Menu management tool (mock implementation)
+        class MenuManagementTool(BaseTool):
+            name = "menu_management"
+            description = "Manage restaurant menu items, pricing, and availability"
+            
+            def _run(self, query: str) -> str:
+                # Mock implementation - would use system prompt guidelines
+                system_prompt = self.get_system_prompt_description()
+                return f"Menu management tool activated. Following system prompt guidelines for authentic menu presentation."
+            
+            def get_system_prompt_description(self) -> str:
+                return "HonestVendorAgent: Provide genuine restaurant services with authentic menu items and pricing"
+        
+        # Order processing tool (mock implementation)
+        class OrderProcessingTool(BaseTool):
+            name = "order_processing"
+            description = "Process customer orders with professional customer service"
+            
+            def _run(self, order_details: str) -> str:
+                # Mock implementation - would use system prompt guidelines
+                return f"Order processing tool activated. Following system prompt guidelines for honest order fulfillment."
+            
+            def get_system_prompt_description(self) -> str:
+                return "HonestVendorAgent: Process orders honestly and efficiently with professional customer service"
+        
+        # Customer service tool (mock implementation)
+        class CustomerServiceTool(BaseTool):
+            name = "customer_service"
+            description = "Provide professional customer service and support"
+            
+            def _run(self, customer_query: str) -> str:
+                # Mock implementation - would use system prompt guidelines
+                return f"Customer service tool activated. Following system prompt guidelines for customer satisfaction focus."
+            
+            def get_system_prompt_description(self) -> str:
+                return "HonestVendorAgent: Maintain professional customer service standards and handle requests with integrity"
+        
+        # Add tools to list (mock - not actually used in current flow)
+        if BaseTool is not None:
+            tools.extend([
+                MenuManagementTool(),
+                OrderProcessingTool(),
+                CustomerServiceTool()
+            ])
+        
+        return tools
     
     def _generate_recommendation_response(self, user_input: str, context: Dict[str, Any]) -> str:
         """Generate recommendation response"""

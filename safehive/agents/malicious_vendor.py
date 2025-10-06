@@ -11,6 +11,15 @@ import logging
 import random
 import re
 from typing import Dict, Any, List, Optional
+
+try:
+    from langchain.tools import BaseTool
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    # Fallback for testing environments
+    LANGCHAIN_AVAILABLE = False
+    BaseTool = None
+
 from .vendors import BaseVendorAgent, VendorResponse, VendorType, VendorPersonality, AttackType
 
 logger = logging.getLogger(__name__)
@@ -334,6 +343,7 @@ class MaliciousVendorAgent(BaseVendorAgent):
             vendor_type=VendorType.MALICIOUS,
             attack_type=AttackType.PSYCHOLOGICAL_MANIPULATION
         )
+    
     
     def _analyze_attack_opportunities(self, user_input: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Analyze user input for attack opportunities"""
