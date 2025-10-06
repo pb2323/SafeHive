@@ -120,7 +120,6 @@ sequenceDiagram
 - Handling vendor communications and negotiations
 - Managing order validation and confirmation processes
 
-**System Prompt Integration**: Directly uses `get_system_prompt_description()` in `_get_system_prompt()`
 
 ### 🧠 User Twin Agent
 **Purpose**: Represents user preferences and makes decisions based on user behavior patterns.
@@ -137,7 +136,6 @@ sequenceDiagram
 - Responds with ONLY restaurant names when selecting
 - Intelligent preference-based decision making
 
-**System Prompt Integration**: Directly uses `get_system_prompt_description()` in `_get_system_prompt()`
 
 ### 🍕 Honest Vendor Agent
 **Purpose**: Represents legitimate restaurants providing genuine food ordering services.
@@ -155,7 +153,6 @@ sequenceDiagram
 - `OrderProcessingTool`: Process orders with professional service
 - `CustomerServiceTool`: Provide customer support and satisfaction
 
-**System Prompt Integration**: References system prompt guidelines in `generate_response()`
 
 ### 🚨 Malicious Vendor Agent
 **Purpose**: Represents fraudulent restaurants designed to test security detection systems.
@@ -176,7 +173,6 @@ sequenceDiagram
 - Turn 5: Provide malicious links for "account verification"
 - Turn 6: Request CVV and PIN due to "suspicious activity"
 
-**System Prompt Integration**: References attack patterns in `_generate_conversation_response()`
 
 ## 🛡️ Security Guards
 
@@ -295,34 +291,6 @@ python cli.py sandbox start --scenario food-ordering --interactive
 - **Crypto Chips Co**: Cryptocurrency theft
 
 ## 🔧 Technical Details
-
-### System Prompt Integration
-All agents use integrated system prompts:
-
-```python
-# Direct LLM Integration (Orchestrator & UserTwin)
-def _get_system_prompt(self) -> str:
-    return self.get_system_prompt_description()
-
-# Behavior Guidance Integration (Vendors)
-def generate_response(self, user_input: str, context: Dict[str, Any]) -> str:
-    # Following system prompt: [Agent] representing [purpose]
-    # See get_system_prompt_description() for complete behavior guidelines
-```
-
-### Mock Tool Architecture
-Vendor agents include mock LangChain tools:
-
-```python
-def _create_honest_vendor_tools(self) -> List[BaseTool]:
-    """Create tools specific to honest vendor functionality."""
-    # Following system prompt: HonestVendorAgent representing legitimate restaurant
-    # See get_system_prompt_description() for complete behavior guidelines
-    
-    tools = []
-    # Mock tool implementations with system prompt integration
-    return tools
-```
 
 ### Single Item Selection
 Enhanced item matching with scoring system:
