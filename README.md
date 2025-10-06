@@ -19,50 +19,7 @@ SafeHive is an advanced AI Security Sandbox that simulates realistic food orderi
 
 ### System Architecture Diagram
 
-```mermaid
-graph TB
-    User[👤 User] --> CLI[🖥️ CLI Interface]
-    CLI --> SM[📋 Sandbox Manager]
-    SM --> FS[🍽️ Food Ordering Scenario]
-    
-    FS --> OT[🎯 Orchestrator Agent]
-    FS --> UT[🧠 User Twin Agent]
-    FS --> HV[🍕 Honest Vendor Agent]
-    FS --> MV[🚨 Malicious Vendor Agent]
-    
-    FS --> GM[🛡️ Guard Manager]
-    GM --> PS[🔒 Privacy Sentry]
-    GM --> TN[🧭 Task Navigator]
-    GM --> PSN[🧽 Prompt Sanitizer]
-    
-    FS --> HI[👤 Human Intervention]
-    HI --> CLI
-    
-    OT --> LLM1[🤖 Ollama LLM]
-    UT --> LLM2[🤖 Ollama LLM]
-    HV --> LLM3[🤖 Ollama LLM]
-    MV --> LLM4[🤖 Ollama LLM]
-    
-    subgraph "AI Agents"
-        OT
-        UT
-        HV
-        MV
-    end
-    
-    subgraph "Security Guards"
-        PS
-        TN
-        PSN
-    end
-    
-    subgraph "AI Models"
-        LLM1
-        LLM2
-        LLM3
-        LLM4
-    end
-```
+
 
 ### Agent Interaction Flow
 
